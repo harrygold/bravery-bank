@@ -1,98 +1,289 @@
-import { Image } from 'expo-image';
-import { Platform, StyleSheet } from 'react-native';
+import { useRouter } from 'expo-router';
+import { useEffect, useState } from 'react';
+import { ActivityIndicator, Platform, Pressable, StyleSheet, View } from 'react-native';
+import Animated, {
+  FadeIn,
+  FadeOut,
+  useAnimatedStyle,
+  useSharedValue,
+  withSpring,
+} from 'react-native-reanimated';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { HelloWave } from '@/components/hello-wave';
-import ParallaxScrollView from '@/components/parallax-scroll-view';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import { Link } from 'expo-router';
+import { Colors } from '@/constants/theme';
+import { useColorScheme } from '@/hooks/use-color-scheme';
+import { useBraveryBank } from '@/hooks/useBraveryBank';
+import { loadData } from '@/utils/storage';
 
-export default function HomeScreen() {
+// App accent color - warm teal
+const ACCENT_COLOR = '#2A9D8F';
+const ACCENT_COLOR_LIGHT = '#40B4A6';
+
+export default function TodayScreen() {
+  const router = useRouter();
+  const colorScheme = useColorScheme() ?? 'light';
+  const colors = Colors[colorScheme];
+  const [checkedOnboarding, setCheckedOnboarding] = useState(false);
+
+  const {
+    isLoading,
+    braveDays,
+    todayChallenge,
+    todayStatus,
+    completeToday,
+    restToday,
+  } = useBraveryBank();
+
+  // Redirect to onboarding on first launch (show loading until we know)
+  useEffect(() => {
+    loadData().then((data) => {
+      if (!data.hasCompletedOnboarding) {
+        router.replace('/onboarding');
+        return;
+      }
+      setCheckedOnboarding(true);
+    });
+  }, [router]);
+
+  // Button animation
+  const buttonScale = useSharedValue(1);
+  
+  const animatedButtonStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: buttonScale.value }],
+  }));
+
+  const handlePressIn = () => {
+    buttonScale.value = withSpring(0.95);
+  };
+
+  const handlePressOut = () => {
+    buttonScale.value = withSpring(1);
+  };
+
+  const handleComplete = async () => {
+    await completeToday();
+  };
+
+  const handleRest = async () => {
+    await restToday();
+  };
+
+  if (isLoading || !checkedOnboarding) {
+    return (
+      <ThemedView style={styles.container}>
+        <ActivityIndicator size="large" color={ACCENT_COLOR} />
+      </ThemedView>
+    );
+  }
+
   return (
-    <ParallaxScrollView
-      headerBackgroundColor={{ light: '#A1CEDC', dark: '#1D3D47' }}
-      headerImage={
-        <Image
-          source={require('@/assets/images/partial-react-logo.png')}
-          style={styles.reactLogo}
-        />
-      }>
-      <ThemedView style={styles.titleContainer}>
-        <ThemedText type="title">Welcome!</ThemedText>
-        <HelloWave />
-      </ThemedView>
-      <ThemedView style={styles.stepContainer}>
-        <ThemedText type="subtitle">Step 1: Try it</ThemedText>
-        <ThemedText>
-          Edit <ThemedText type="defaultSemiBold">app/(tabs)/index.tsx</ThemedText> to see changes.
-          Press{' '}
-          <ThemedText type="defaultSemiBold">
-            {Platform.select({
-              ios: 'cmd + d',
-              android: 'cmd + m',
-              web: 'F12',
-            })}
-          </ThemedText>{' '}
-          to open developer tools.
-        </ThemedText>
-      </ThemedView>
-      <ThemedView style={styles.stepContainer}>
-        <Link href="/modal">
-          <Link.Trigger>
-            <ThemedText type="subtitle">Step 2: Explore</ThemedText>
-          </Link.Trigger>
-          <Link.Preview />
-          <Link.Menu>
-            <Link.MenuAction title="Action" icon="cube" onPress={() => alert('Action pressed')} />
-            <Link.MenuAction
-              title="Share"
-              icon="square.and.arrow.up"
-              onPress={() => alert('Share pressed')}
-            />
-            <Link.Menu title="More" icon="ellipsis">
-              <Link.MenuAction
-                title="Delete"
-                icon="trash"
-                destructive
-                onPress={() => alert('Delete pressed')}
-              />
-            </Link.Menu>
-          </Link.Menu>
-        </Link>
+    <ThemedView style={styles.container}>
+      <SafeAreaView
+        style={[
+          styles.safeArea,
+          Platform.OS === 'android' && styles.safeAreaAndroid,
+        ]}
+        edges={['top']}
+      >
+        {/* Header */}
+        <View style={styles.header}>
+          <ThemedText style={styles.appName}>Bravery Bank</ThemedText>
+          <ThemedText style={styles.tagline}>One tiny act of courage, every day</ThemedText>
+        </View>
 
-        <ThemedText>
-          {`Tap the Explore tab to learn more about what's included in this starter app.`}
+        {/* Brave Days Counter */}
+      <Pressable 
+        style={styles.counterContainer}
+        onPress={() => router.push('/(tabs)/explore')}
+      >
+        <ThemedText style={[styles.counterNumber, { color: ACCENT_COLOR }]}>
+          {braveDays}
         </ThemedText>
-      </ThemedView>
-      <ThemedView style={styles.stepContainer}>
-        <ThemedText type="subtitle">Step 3: Get a fresh start</ThemedText>
-        <ThemedText>
-          {`When you're ready, run `}
-          <ThemedText type="defaultSemiBold">npm run reset-project</ThemedText> to get a fresh{' '}
-          <ThemedText type="defaultSemiBold">app</ThemedText> directory. This will move the current{' '}
-          <ThemedText type="defaultSemiBold">app</ThemedText> to{' '}
-          <ThemedText type="defaultSemiBold">app-example</ThemedText>.
-        </ThemedText>
-      </ThemedView>
-    </ParallaxScrollView>
+        <ThemedText style={styles.counterLabel}>Brave Days</ThemedText>
+        <ThemedText style={styles.counterSubLabel}>Days you chose courage</ThemedText>
+      </Pressable>
+
+      {/* Challenge Card */}
+      <View style={[
+        styles.challengeCard,
+        { 
+          backgroundColor: colorScheme === 'dark' ? '#1E2A2A' : '#F0F9F8',
+          opacity: todayStatus !== 'none' ? 0.6 : 1,
+        }
+      ]}>
+        {todayStatus === 'none' ? (
+          <Animated.View entering={FadeIn.duration(300)}>
+            <ThemedText style={styles.challengeLabel}>Today's Challenge</ThemedText>
+            <ThemedText style={styles.challengeText}>{todayChallenge}</ThemedText>
+          </Animated.View>
+        ) : todayStatus === 'completed' ? (
+          <Animated.View entering={FadeIn.duration(300)} style={styles.completedContainer}>
+            <ThemedText style={styles.completedIcon} includeFontPadding={false}>
+              ✓
+            </ThemedText>
+            <ThemedText style={styles.completedText}>You chose courage today</ThemedText>
+            <ThemedText style={styles.seeYouText}>See you tomorrow</ThemedText>
+          </Animated.View>
+        ) : (
+          <Animated.View entering={FadeIn.duration(300)} style={styles.completedContainer}>
+            <ThemedText style={styles.restIcon} includeFontPadding={false}>
+              🌙
+            </ThemedText>
+            <ThemedText style={styles.completedText}>Rest day — that's okay</ThemedText>
+            <ThemedText style={styles.seeYouText}>Your courage will be here tomorrow</ThemedText>
+          </Animated.View>
+        )}
+      </View>
+
+      {/* Action Buttons */}
+      {todayStatus === 'none' && (
+        <Animated.View 
+          entering={FadeIn.duration(300)} 
+          exiting={FadeOut.duration(200)}
+          style={styles.buttonContainer}
+        >
+          <Animated.View style={animatedButtonStyle}>
+            <Pressable
+              style={[styles.primaryButton, { backgroundColor: ACCENT_COLOR }]}
+              onPress={handleComplete}
+              onPressIn={handlePressIn}
+              onPressOut={handlePressOut}
+            >
+              <ThemedText style={styles.primaryButtonText}>I Did It</ThemedText>
+            </Pressable>
+          </Animated.View>
+
+          <Pressable style={styles.secondaryButton} onPress={handleRest}>
+            <ThemedText style={[styles.secondaryButtonText, { color: colors.text }]}>
+              Not Today
+            </ThemedText>
+          </Pressable>
+        </Animated.View>
+      )}
+      </SafeAreaView>
+    </ThemedView>
   );
 }
 
 const styles = StyleSheet.create({
-  titleContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
+  container: {
+    flex: 1,
   },
-  stepContainer: {
-    gap: 8,
+  safeArea: {
+    flex: 1,
+    paddingHorizontal: 24,
+    paddingBottom: 40,
+  },
+  safeAreaAndroid: {
+    paddingTop: 48,
+  },
+  header: {
+    alignItems: 'center',
+    marginTop: 32,
+    marginBottom: 32,
+  },
+  appName: {
+    fontSize: 28,
+    fontWeight: '700',
+    marginBottom: 4,
+  },
+  tagline: {
+    fontSize: 14,
+    opacity: 0.7,
+  },
+  counterContainer: {
+    alignItems: 'center',
+    marginBottom: 32,
+    paddingVertical: 16,
+  },
+  counterNumber: {
+    fontSize: 64,
+    fontWeight: '700',
+    lineHeight: 72,
+  },
+  counterLabel: {
+    fontSize: 18,
+    fontWeight: '600',
+    marginTop: 4,
+  },
+  counterSubLabel: {
+    fontSize: 13,
+    opacity: 0.6,
+    marginTop: 2,
+  },
+  challengeCard: {
+    borderRadius: 16,
+    padding: 24,
+    marginBottom: 32,
+    minHeight: 160,
+    justifyContent: 'center',
+    overflow: 'visible',
+  },
+  challengeLabel: {
+    fontSize: 12,
+    fontWeight: '600',
+    textTransform: 'uppercase',
+    letterSpacing: 1,
+    opacity: 0.6,
+    marginBottom: 12,
+  },
+  challengeText: {
+    fontSize: 18,
+    lineHeight: 26,
+    fontWeight: '500',
+  },
+  completedContainer: {
+    alignItems: 'center',
+    overflow: 'visible',
+    paddingTop: 8,
+  },
+  completedIcon: {
+    fontSize: 48,
+    color: ACCENT_COLOR,
+    marginBottom: 12,
+    lineHeight: 56,
+    paddingVertical: 4,
+  },
+  restIcon: {
+    fontSize: 48,
+    lineHeight: 56,
+    paddingTop: 8,
+    paddingBottom: 4,
+    marginBottom: 12,
+  },
+  completedText: {
+    fontSize: 18,
+    fontWeight: '600',
+    textAlign: 'center',
     marginBottom: 8,
   },
-  reactLogo: {
-    height: 178,
-    width: 290,
-    bottom: 0,
-    left: 0,
-    position: 'absolute',
+  seeYouText: {
+    fontSize: 14,
+    opacity: 0.6,
+    textAlign: 'center',
+  },
+  buttonContainer: {
+    marginTop: 'auto',
+  },
+  primaryButton: {
+    borderRadius: 12,
+    paddingVertical: 18,
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  primaryButtonText: {
+    color: '#FFFFFF',
+    fontSize: 18,
+    fontWeight: '700',
+  },
+  secondaryButton: {
+    alignItems: 'center',
+    paddingVertical: 12,
+  },
+  secondaryButtonText: {
+    fontSize: 16,
+    opacity: 0.7,
   },
 });

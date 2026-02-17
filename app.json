@@ -26,6 +26,13 @@
       "favicon": "./assets/images/favicon.png"
     },
     "plugins": [
+      [
+        "expo-notifications",
+        {
+          "defaultChannel": "daily-reminder",
+          "color": "#2A9D8F"
+        }
+      ],
       "expo-router",
       [
         "expo-splash-screen",

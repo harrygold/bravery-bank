@@ -1,112 +1,250 @@
-import { Image } from 'expo-image';
-import { Platform, StyleSheet } from 'react-native';
+import { useRouter } from 'expo-router';
+import { ActivityIndicator, Platform, Pressable, StyleSheet, View } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { Collapsible } from '@/components/ui/collapsible';
-import { ExternalLink } from '@/components/external-link';
-import ParallaxScrollView from '@/components/parallax-scroll-view';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { IconSymbol } from '@/components/ui/icon-symbol';
-import { Fonts } from '@/constants/theme';
+import { Colors } from '@/constants/theme';
+import { useColorScheme } from '@/hooks/use-color-scheme';
+import { useBraveryBank } from '@/hooks/useBraveryBank';
+import { getCurrentWeekDays, getTodayString, isDateCompleted } from '@/utils/storage';
 
-export default function TabTwoScreen() {
-  return (
-    <ParallaxScrollView
-      headerBackgroundColor={{ light: '#D0D0D0', dark: '#353636' }}
-      headerImage={
-        <IconSymbol
-          size={310}
-          color="#808080"
-          name="chevron.left.forwardslash.chevron.right"
-          style={styles.headerImage}
-        />
-      }>
-      <ThemedView style={styles.titleContainer}>
-        <ThemedText
-          type="title"
-          style={{
-            fontFamily: Fonts.rounded,
-          }}>
-          Explore
-        </ThemedText>
+// App accent color - warm teal
+const ACCENT_COLOR = '#2A9D8F';
+
+// American calendar day labels: Sunday first
+const DAY_LABELS = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
+
+export default function ProgressScreen() {
+  const router = useRouter();
+  const colorScheme = useColorScheme() ?? 'light';
+  const colors = Colors[colorScheme];
+  
+  const { braveDays, completedDates, isLoading } = useBraveryBank();
+  
+  const weekDays = getCurrentWeekDays();
+  const todayString = getTodayString();
+
+  if (isLoading) {
+    return (
+      <ThemedView style={styles.container}>
+        <ActivityIndicator size="large" color={ACCENT_COLOR} />
       </ThemedView>
-      <ThemedText>This app includes example code to help you get started.</ThemedText>
-      <Collapsible title="File-based routing">
-        <ThemedText>
-          This app has two screens:{' '}
-          <ThemedText type="defaultSemiBold">app/(tabs)/index.tsx</ThemedText> and{' '}
-          <ThemedText type="defaultSemiBold">app/(tabs)/explore.tsx</ThemedText>
-        </ThemedText>
-        <ThemedText>
-          The layout file in <ThemedText type="defaultSemiBold">app/(tabs)/_layout.tsx</ThemedText>{' '}
-          sets up the tab navigator.
-        </ThemedText>
-        <ExternalLink href="https://docs.expo.dev/router/introduction">
-          <ThemedText type="link">Learn more</ThemedText>
-        </ExternalLink>
-      </Collapsible>
-      <Collapsible title="Android, iOS, and web support">
-        <ThemedText>
-          You can open this project on Android, iOS, and the web. To open the web version, press{' '}
-          <ThemedText type="defaultSemiBold">w</ThemedText> in the terminal running this project.
-        </ThemedText>
-      </Collapsible>
-      <Collapsible title="Images">
-        <ThemedText>
-          For static images, you can use the <ThemedText type="defaultSemiBold">@2x</ThemedText> and{' '}
-          <ThemedText type="defaultSemiBold">@3x</ThemedText> suffixes to provide files for
-          different screen densities
-        </ThemedText>
-        <Image
-          source={require('@/assets/images/react-logo.png')}
-          style={{ width: 100, height: 100, alignSelf: 'center' }}
-        />
-        <ExternalLink href="https://reactnative.dev/docs/images">
-          <ThemedText type="link">Learn more</ThemedText>
-        </ExternalLink>
-      </Collapsible>
-      <Collapsible title="Light and dark mode components">
-        <ThemedText>
-          This template has light and dark mode support. The{' '}
-          <ThemedText type="defaultSemiBold">useColorScheme()</ThemedText> hook lets you inspect
-          what the user&apos;s current color scheme is, and so you can adjust UI colors accordingly.
-        </ThemedText>
-        <ExternalLink href="https://docs.expo.dev/develop/user-interface/color-themes/">
-          <ThemedText type="link">Learn more</ThemedText>
-        </ExternalLink>
-      </Collapsible>
-      <Collapsible title="Animations">
-        <ThemedText>
-          This template includes an example of an animated component. The{' '}
-          <ThemedText type="defaultSemiBold">components/HelloWave.tsx</ThemedText> component uses
-          the powerful{' '}
-          <ThemedText type="defaultSemiBold" style={{ fontFamily: Fonts.mono }}>
-            react-native-reanimated
-          </ThemedText>{' '}
-          library to create a waving hand animation.
-        </ThemedText>
-        {Platform.select({
-          ios: (
-            <ThemedText>
-              The <ThemedText type="defaultSemiBold">components/ParallaxScrollView.tsx</ThemedText>{' '}
-              component provides a parallax effect for the header image.
+    );
+  }
+
+  return (
+    <ThemedView style={styles.container}>
+      <SafeAreaView
+        style={[
+          styles.safeArea,
+          Platform.OS === 'android' && styles.safeAreaAndroid,
+        ]}
+        edges={['top']}
+      >
+        {/* Header with Settings */}
+        <View style={styles.header}>
+          <ThemedText style={styles.title} includeFontPadding={false}>
+            Progress
+          </ThemedText>
+          <Pressable 
+            style={styles.settingsButton}
+            onPress={() => router.push('/settings')}
+            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+          >
+            <IconSymbol 
+              name="gearshape.fill" 
+              size={26} 
+              color={colors.icon} 
+            />
+          </Pressable>
+        </View>
+
+        {/* Total Brave Days */}
+        <View style={styles.totalContainer}>
+          <ThemedText style={[styles.totalNumber, { color: ACCENT_COLOR }]}>
+            {braveDays}
+          </ThemedText>
+          <ThemedText style={styles.totalLabel}>Brave Days Total</ThemedText>
+        </View>
+
+        {/* Weekly Calendar - American format (Sunday first) */}
+        <View style={[
+          styles.weekContainer,
+          { backgroundColor: colorScheme === 'dark' ? '#1E2A2A' : '#F0F9F8' }
+        ]}>
+          <ThemedText style={styles.weekLabel}>This Week</ThemedText>
+          
+          <View style={styles.dotsContainer}>
+            {weekDays.map((date, index) => {
+              const isCompleted = isDateCompleted(date, completedDates);
+              const isToday = date === todayString;
+              
+              return (
+                <View key={date} style={styles.dotWrapper}>
+                  <View
+                    style={[
+                      styles.dot,
+                      isCompleted 
+                        ? { backgroundColor: ACCENT_COLOR } 
+                        : { 
+                            backgroundColor: 'transparent',
+                            borderWidth: 2,
+                            borderColor: colorScheme === 'dark' ? '#3A4A4A' : '#D0D0D0',
+                          },
+                      isToday && !isCompleted && styles.todayDot,
+                    ]}
+                  >
+                    {isCompleted && (
+                      <ThemedText style={styles.checkmark}>✓</ThemedText>
+                    )}
+                  </View>
+                  <ThemedText style={[
+                    styles.dayLabel,
+                    isToday && styles.todayLabel,
+                  ]}>
+                    {DAY_LABELS[index]}
+                  </ThemedText>
+                </View>
+              );
+            })}
+          </View>
+          
+          <ThemedText style={styles.weekCaption}>
+            Every filled dot is a moment you chose courage
+          </ThemedText>
+        </View>
+
+        {/* Encouragement */}
+        <View style={styles.encouragementContainer}>
+          {braveDays === 0 ? (
+            <ThemedText style={styles.encouragementText}>
+              Your first brave day is waiting for you
             </ThemedText>
-          ),
-        })}
-      </Collapsible>
-    </ParallaxScrollView>
+          ) : braveDays === 1 ? (
+            <ThemedText style={styles.encouragementText}>
+              You've started something meaningful
+            </ThemedText>
+          ) : braveDays < 7 ? (
+            <ThemedText style={styles.encouragementText}>
+              {braveDays} moments of courage. Keep going.
+            </ThemedText>
+          ) : (
+            <ThemedText style={styles.encouragementText}>
+              {braveDays} brave days. You're building something real.
+            </ThemedText>
+          )}
+        </View>
+      </SafeAreaView>
+    </ThemedView>
   );
 }
 
 const styles = StyleSheet.create({
-  headerImage: {
-    color: '#808080',
-    bottom: -90,
-    left: -35,
-    position: 'absolute',
+  container: {
+    flex: 1,
   },
-  titleContainer: {
+  safeArea: {
+    flex: 1,
+    paddingHorizontal: 24,
+  },
+  safeAreaAndroid: {
+    paddingTop: 16,
+  },
+  header: {
     flexDirection: 'row',
-    gap: 8,
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginTop: 8,
+    marginBottom: 40,
+    paddingBottom: 6,
+    overflow: 'visible',
+  },
+  title: {
+    fontSize: 28,
+    fontWeight: '700',
+    lineHeight: 38,
+    paddingBottom: 4,
+  },
+  settingsButton: {
+    padding: 8,
+  },
+  totalContainer: {
+    alignItems: 'center',
+    marginBottom: 40,
+  },
+  totalNumber: {
+    fontSize: 80,
+    fontWeight: '700',
+    lineHeight: 88,
+  },
+  totalLabel: {
+    fontSize: 18,
+    fontWeight: '600',
+    marginTop: 8,
+  },
+  weekContainer: {
+    borderRadius: 16,
+    padding: 24,
+    marginBottom: 32,
+  },
+  weekLabel: {
+    fontSize: 14,
+    fontWeight: '600',
+    textTransform: 'uppercase',
+    letterSpacing: 1,
+    opacity: 0.6,
+    marginBottom: 20,
+    textAlign: 'center',
+  },
+  dotsContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 16,
+  },
+  dotWrapper: {
+    alignItems: 'center',
+  },
+  dot: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    marginBottom: 8,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  checkmark: {
+    color: '#FFFFFF',
+    fontSize: 18,
+    fontWeight: '700',
+  },
+  todayDot: {
+    borderColor: '#2A9D8F',
+    borderWidth: 2,
+  },
+  dayLabel: {
+    fontSize: 12,
+    opacity: 0.6,
+  },
+  todayLabel: {
+    opacity: 1,
+    fontWeight: '600',
+  },
+  weekCaption: {
+    fontSize: 13,
+    opacity: 0.5,
+    textAlign: 'center',
+    fontStyle: 'italic',
+  },
+  encouragementContainer: {
+    alignItems: 'center',
+    paddingHorizontal: 20,
+  },
+  encouragementText: {
+    fontSize: 16,
+    textAlign: 'center',
+    opacity: 0.7,
+    lineHeight: 24,
   },
 });
