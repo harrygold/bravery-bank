@@ -1,5 +1,12 @@
 import { useRouter } from 'expo-router';
-import { ActivityIndicator, Platform, Pressable, StyleSheet, View } from 'react-native';
+import {
+  ActivityIndicator,
+  Image,
+  Platform,
+  Pressable,
+  StyleSheet,
+  View,
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { ThemedText } from '@/components/themed-text';
@@ -61,13 +68,34 @@ export default function ProgressScreen() {
           </Pressable>
         </View>
 
-        {/* Total Brave Days */}
-        <View style={styles.totalContainer}>
-          <ThemedText style={[styles.totalNumber, { color: ACCENT_COLOR }]}>
-            {braveDays}
-          </ThemedText>
-          <ThemedText style={styles.totalLabel}>Brave Days Total</ThemedText>
-        </View>
+        {/* Total Brave Days: centered stack when > 0, row + Blur when 0 */}
+        {braveDays > 0 ? (
+          <View style={styles.totalContainerCentered}>
+            <ThemedText style={[styles.totalNumber, { color: ACCENT_COLOR, textAlign: 'center' }]}>
+              {braveDays}
+            </ThemedText>
+            <ThemedText style={[styles.totalLabel, styles.totalLabelCentered]}>
+              Brave Days
+            </ThemedText>
+          </View>
+        ) : (
+          <View style={styles.totalRow}>
+            <View style={styles.totalCounterColumn}>
+              <ThemedText style={[styles.totalNumber, { color: ACCENT_COLOR }]}>
+                {braveDays}
+              </ThemedText>
+              <ThemedText style={styles.totalLabel}>Brave Days</ThemedText>
+            </View>
+            <View style={styles.mascotWrap}>
+              <Image
+                source={require('@/assets/images/mascot/blur-sad-walk.png')}
+                style={styles.mascotImage}
+                resizeMode="contain"
+                accessibilityLabel="Blur walking"
+              />
+            </View>
+          </View>
+        )}
 
         {/* Weekly Calendar - American format (Sunday first) */}
         <View style={[
@@ -118,24 +146,72 @@ export default function ProgressScreen() {
 
         {/* Encouragement */}
         <View style={styles.encouragementContainer}>
-          {braveDays === 0 ? (
-            <ThemedText style={styles.encouragementText}>
-              Your first brave day is waiting for you
-            </ThemedText>
-          ) : braveDays === 1 ? (
-            <ThemedText style={styles.encouragementText}>
-              You've started something meaningful
-            </ThemedText>
-          ) : braveDays < 7 ? (
-            <ThemedText style={styles.encouragementText}>
-              {braveDays} moments of courage. Keep going.
-            </ThemedText>
-          ) : (
-            <ThemedText style={styles.encouragementText}>
-              {braveDays} brave days. You're building something real.
-            </ThemedText>
-          )}
+          <View style={styles.encouragementTextBlock}>
+            {braveDays === 0 ? (
+              <ThemedText style={styles.encouragementText}>
+                Your first brave moment is waiting.
+              </ThemedText>
+            ) : braveDays === 1 ? (
+              <ThemedText style={styles.encouragementText}>
+                1 moment of courage. You&apos;ve started something meaningful.
+              </ThemedText>
+            ) : braveDays >= 2 && braveDays <= 4 ? (
+              <ThemedText style={styles.encouragementText}>
+                {braveDays} moments of courage. Keep going.
+              </ThemedText>
+            ) : braveDays === 5 ? (
+              <ThemedText style={styles.encouragementText}>
+                5 moments of courage. Courage is becoming a habit.
+              </ThemedText>
+            ) : braveDays >= 6 && braveDays <= 9 ? (
+              <ThemedText style={styles.encouragementText}>
+                {braveDays} moments of courage. Keep going.
+              </ThemedText>
+            ) : braveDays === 10 ? (
+              <ThemedText style={styles.encouragementText}>
+                10 moments of courage. Look at you go.
+              </ThemedText>
+            ) : braveDays >= 11 && braveDays <= 24 ? (
+              <ThemedText style={styles.encouragementText}>
+                {braveDays} moments of courage. Keep going.
+              </ThemedText>
+            ) : braveDays === 25 ? (
+              <ThemedText style={styles.encouragementText}>
+                25 moments of courage. Halfway there. This is who you are now.
+              </ThemedText>
+            ) : braveDays >= 26 && braveDays <= 49 ? (
+              <ThemedText style={styles.encouragementText}>
+                {braveDays} moments of courage. Keep going.
+              </ThemedText>
+            ) : braveDays === 50 ? (
+              <ThemedText style={styles.encouragementText}>
+                50 moments of courage. You did it. All 50.
+              </ThemedText>
+            ) : (
+              <ThemedText style={styles.encouragementText}>
+                {braveDays} moments of courage. Keep going.
+              </ThemedText>
+            )}
+          </View>
         </View>
+
+        {braveDays >= 50 && (
+          <ThemedText style={styles.completionBadge} includeFontPadding={false}>
+            ✨ 50-Day Journey Complete
+          </ThemedText>
+        )}
+
+        {/* Excited Blur in bottom-right when user has brave days (decorative) */}
+        {braveDays > 0 && (
+          <View style={styles.mascotCornerWrap} pointerEvents="none">
+            <Image
+              source={require('@/assets/images/mascot/blur-excited.png')}
+              style={styles.mascotCornerImage}
+              resizeMode="contain"
+              accessibilityLabel="Blur excited"
+            />
+          </View>
+        )}
       </SafeAreaView>
     </ThemedView>
   );
@@ -170,9 +246,20 @@ const styles = StyleSheet.create({
   settingsButton: {
     padding: 8,
   },
-  totalContainer: {
+  totalContainerCentered: {
     alignItems: 'center',
     marginBottom: 40,
+  },
+  totalRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    justifyContent: 'center',
+    alignSelf: 'center',
+    gap: 8,
+    marginBottom: 40,
+  },
+  totalCounterColumn: {
+    alignItems: 'flex-start',
   },
   totalNumber: {
     fontSize: 80,
@@ -183,6 +270,35 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: '600',
     marginTop: 8,
+  },
+  totalLabelCentered: {
+    textAlign: 'center',
+  },
+  mascotWrap: {
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  mascotImage: {
+    width: 110,
+    height: 110,
+  },
+  mascotCornerWrap: {
+    position: 'absolute',
+    bottom: 40,
+    right: 30,
+  },
+  mascotCornerImage: {
+    width: 145,
+    height: 145,
+  },
+  completionBadge: {
+    color: ACCENT_COLOR,
+    fontSize: 14,
+    fontWeight: '600',
+    textAlign: 'center',
+    letterSpacing: 0.5,
+    marginTop: 8,
+    marginBottom: 16,
   },
   weekContainer: {
     borderRadius: 16,
@@ -241,9 +357,13 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: 20,
   },
+  encouragementTextBlock: {
+    alignSelf: 'center',
+    maxWidth: '85%',
+  },
   encouragementText: {
     fontSize: 16,
-    textAlign: 'center',
+    textAlign: 'left',
     opacity: 0.7,
     lineHeight: 24,
   },

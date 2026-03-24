@@ -6,6 +6,8 @@ export type ThemedTextProps = TextProps & {
   lightColor?: string;
   darkColor?: string;
   type?: 'default' | 'title' | 'defaultSemiBold' | 'subtitle' | 'link';
+  // React Native Text supports this prop on Android; Cursor/TS needs it in our wrapper types.
+  includeFontPadding?: boolean;
 };
 
 export function ThemedText({

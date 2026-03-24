@@ -2,7 +2,6 @@ import { getChallenge, getTotalChallenges } from '@/data/challenges';
 import {
   BraveryBankData,
   clearData,
-  daysBetween,
   getDefaultData,
   getTodayString,
   loadData,
@@ -20,7 +19,9 @@ export interface BraveryBankValue {
   hapticsEnabled: boolean;
   completeToday: () => Promise<void>;
   restToday: () => Promise<void>;
+  returnToChallenge: () => Promise<void>;
   resetAllData: () => Promise<void>;
+  skipToNextChallenge: () => Promise<void>;
   challengeIndex: number;
 }
 
@@ -37,9 +38,10 @@ export function BraveryBankProvider({ children }: { children: React.ReactNode })
         const today = getTodayString();
 
         if (storedData.lastActivityDate !== today) {
-          const daysElapsed = daysBetween(storedData.lastActivityDate, today);
+          // Missed days still advance by exactly 1 challenge so the user
+          // always picks up next in sequence (wraps after #50).
           const newChallengeIndex =
-            (storedData.lastChallengeIndex + daysElapsed) % getTotalChallenges();
+            (storedData.lastChallengeIndex + 1) % getTotalChallenges();
           const updatedData: BraveryBankData = {
             ...storedData,
             lastActivityDate: today,
@@ -73,11 +75,12 @@ export function BraveryBankProvider({ children }: { children: React.ReactNode })
     }
 
     const today = getTodayString();
+    const freshData = await loadData();
     const updatedData: BraveryBankData = {
-      ...data,
-      totalBraveDays: data.totalBraveDays + 1,
+      ...freshData,
+      totalBraveDays: freshData.totalBraveDays + 1,
       todayStatus: 'completed',
-      completedDates: [...data.completedDates, today],
+      completedDates: [...freshData.completedDates, today],
     };
 
     const saved = await saveData(updatedData);
@@ -87,9 +90,37 @@ export function BraveryBankProvider({ children }: { children: React.ReactNode })
   const restToday = useCallback(async () => {
     if (data.todayStatus !== 'none') return;
 
+    const freshData = await loadData();
     const updatedData: BraveryBankData = {
-      ...data,
+      ...freshData,
       todayStatus: 'rested',
+    };
+
+    const saved = await saveData(updatedData);
+    if (saved) setData(updatedData);
+  }, [data]);
+
+  const returnToChallenge = useCallback(async () => {
+    if (data.todayStatus !== 'rested') return;
+
+    const freshData = await loadData();
+    const updatedData: BraveryBankData = {
+      ...freshData,
+      todayStatus: 'none',
+    };
+
+    const saved = await saveData(updatedData);
+    if (saved) setData(updatedData);
+  }, [data]);
+
+  const skipToNextChallenge = useCallback(async () => {
+    const total = getTotalChallenges();
+    const freshData = await loadData();
+    const nextIndex = (freshData.lastChallengeIndex + 1) % total;
+    const updatedData: BraveryBankData = {
+      ...freshData,
+      lastChallengeIndex: nextIndex,
+      todayStatus: 'none',
     };
 
     const saved = await saveData(updatedData);
@@ -114,7 +145,9 @@ export function BraveryBankProvider({ children }: { children: React.ReactNode })
     hapticsEnabled: data.hapticsEnabled,
     completeToday,
     restToday,
+    returnToChallenge,
     resetAllData,
+    skipToNextChallenge,
     challengeIndex: data.lastChallengeIndex,
   };
 

@@ -18,6 +18,9 @@ export interface BraveryBankData {
   notificationTime: string; // "HH:MM" format
   // Onboarding
   hasCompletedOnboarding: boolean;
+  hasSeenReminderPrompt: boolean;
+  hasCompletedFirstCycle: boolean;
+  hasSeenCelebration: boolean;
 }
 
 // Default data for new users
@@ -33,6 +36,9 @@ export const getDefaultData = (): BraveryBankData => ({
   notificationsEnabled: false,
   notificationTime: '09:00',
   hasCompletedOnboarding: false,
+  hasSeenReminderPrompt: false,
+  hasCompletedFirstCycle: false,
+  hasSeenCelebration: false,
 });
 
 // Get today's date as YYYY-MM-DD string
@@ -58,6 +64,18 @@ export const loadData = async (): Promise<BraveryBankData> => {
       // Backfill: existing users who haven't seen onboarding flag get true (skip onboarding)
       if (data.hasCompletedOnboarding === undefined) {
         data.hasCompletedOnboarding = true;
+      }
+      // Backfill: existing users who already completed onboarding don't see reminder prompt again
+      if (data.hasSeenReminderPrompt === undefined) {
+        data.hasSeenReminderPrompt = true;
+      }
+      // Backfill: new field defaults to false so we can show the post-50 welcome once.
+      if (data.hasCompletedFirstCycle === undefined) {
+        data.hasCompletedFirstCycle = false;
+      }
+      // Backfill: celebration should show once when reaching #50.
+      if (data.hasSeenCelebration === undefined) {
+        data.hasSeenCelebration = false;
       }
       return data;
     }

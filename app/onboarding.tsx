@@ -1,8 +1,11 @@
 import DateTimePicker from '@react-native-community/datetimepicker';
 import Constants from 'expo-constants';
-import { useRouter } from 'expo-router';
-import { useState } from 'react';
+import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useEffect, useState } from 'react';
 import {
+    ActivityIndicator,
+    Alert,
+    Image,
     Platform,
     Pressable,
     StyleSheet,
@@ -13,7 +16,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { useColorScheme } from '@/hooks/use-color-scheme';
-import { loadData, saveData } from '@/utils/storage';
+import { getTodayString, loadData, saveData } from '@/utils/storage';
 
 const ACCENT_COLOR = '#2A9D8F';
 const isExpoGo = Constants.appOwnership === 'expo';
@@ -46,6 +49,7 @@ const formatTimeForDisplay = (date: Date): string => {
 
 export default function OnboardingScreen() {
   const router = useRouter();
+  const { hasSeenReminder } = useLocalSearchParams<{ hasSeenReminder?: string }>();
   const colorScheme = useColorScheme() ?? 'light';
   const [step, setStep] = useState<1 | 2>(1);
   const [reminderTime, setReminderTime] = useState<Date>(() =>
@@ -54,6 +58,30 @@ export default function OnboardingScreen() {
   const [saving, setSaving] = useState(false);
   // On Android the default picker is a dialog; only show it when user taps "Remind me at X"
   const [showTimePicker, setShowTimePicker] = useState(false);
+  // If false, user has already seen the reminder prompt — "I'm Ready" goes straight to tabs
+  const [showReminderStep, setShowReminderStep] = useState(false);
+  const [dataLoaded, setDataLoaded] = useState(false);
+  const [screenReady, setScreenReady] = useState(false);
+  const [welcomeButtonText, setWelcomeButtonText] = useState("I'm Ready");
+
+  useEffect(() => {
+    setScreenReady(false);
+    const seen = hasSeenReminder === '1';
+
+    // Load today status so we can render the correct primary button label without flashing.
+    loadData().then((data) => {
+      const today = getTodayString();
+      const isNewDay = data.lastActivityDate !== today;
+      const resolvedToday =
+        !isNewDay &&
+        (data.todayStatus === 'completed' || data.todayStatus === 'rested');
+
+      setWelcomeButtonText(resolvedToday ? "See how I'm doing" : "I'm Ready");
+      setShowReminderStep(!seen);
+      setDataLoaded(true);
+      setScreenReady(true);
+    });
+  }, [hasSeenReminder]);
 
   const finishOnboarding = async (enableReminder: boolean) => {
     setSaving(true);
@@ -64,7 +92,17 @@ export default function OnboardingScreen() {
 
       if (enableReminder && !isExpoGo) {
         const { scheduleDailyReminder } = await import('@/utils/notifications');
-        notificationsEnabled = await scheduleDailyReminder(timeStr);
+        const granted = await scheduleDailyReminder(timeStr);
+        if (granted) {
+          notificationsEnabled = true;
+        } else {
+          // Permission denied — still finish onboarding, but let user know
+          notificationsEnabled = false;
+          Alert.alert(
+            'Notifications blocked',
+            "It looks like notifications are turned off in your phone's settings. You can enable them later in your phone's Settings app to get daily reminders."
+          );
+        }
       } else if (enableReminder && isExpoGo) {
         // In Expo Go we can't schedule; save preference for when they build
         notificationsEnabled = true;
@@ -73,6 +111,7 @@ export default function OnboardingScreen() {
       const updated = {
         ...data,
         hasCompletedOnboarding: true,
+        hasSeenReminderPrompt: true,
         notificationsEnabled,
         notificationTime: timeStr,
       };
@@ -94,53 +133,84 @@ export default function OnboardingScreen() {
     if (date) setReminderTime(date);
   };
 
-  // Step 1: Welcome
+  if (!screenReady) {
+    return (
+      <View style={styles.welcomeContainer}>
+        <ActivityIndicator size="large" color="#2A9D8F" />
+      </View>
+    );
+  }
+
+  // Step 1: Welcome — bold type high on screen, Blur mascot below
   if (step === 1) {
     return (
-      <ThemedView style={styles.container}>
+      <View style={styles.welcomeContainer}>
         <SafeAreaView style={styles.safeArea} edges={['top', 'bottom']}>
-          <View style={styles.content}>
-            <ThemedText style={styles.appName} includeFontPadding={false}>
-              Bravery Bank
-            </ThemedText>
-            <ThemedText style={styles.tagline}>
-              One tiny act of courage, every day
-            </ThemedText>
-            <ThemedText style={styles.privacy}>
-              No email. No password. No cloud. Just you.
-            </ThemedText>
+          <View style={styles.welcomeContent}>
+            <View style={styles.welcomeTextBlock}>
+              <ThemedText style={styles.appName} lightColor="#FFFFFF" darkColor="#FFFFFF" includeFontPadding={false}>
+                Bravery Bank
+              </ThemedText>
+              <ThemedText style={styles.tagline} lightColor="#FFFFFF" darkColor="#FFFFFF">
+                One tiny act of courage, every day
+              </ThemedText>
+              <ThemedText style={styles.privacyOnWelcome} lightColor="rgba(255,255,255,0.6)" darkColor="rgba(255,255,255,0.6)">
+                No email. No password. No cloud. Just you.
+              </ThemedText>
+            </View>
+            <View style={styles.mascotWrap}>
+              <Image
+                source={require('@/assets/images/mascot/blur-excited.png')}
+                style={styles.mascotImage}
+                resizeMode="contain"
+                accessibilityLabel="Blur the mascot, excited"
+              />
+            </View>
           </View>
           <View style={styles.footer}>
             <Pressable
               style={[styles.primaryButton, { backgroundColor: ACCENT_COLOR }]}
-              onPress={() => setStep(2)}
+              onPress={async () => {
+                if (!dataLoaded) return;
+                if (showReminderStep) {
+                  setStep(2);
+                } else {
+                  const data = await loadData();
+                  await saveData({ ...data, hasCompletedOnboarding: true });
+                  router.replace('/(tabs)');
+                }
+              }}
             >
-              <ThemedText style={styles.primaryButtonText}>I'm Ready</ThemedText>
+              <ThemedText style={styles.primaryButtonText}>{welcomeButtonText}</ThemedText>
             </Pressable>
           </View>
         </SafeAreaView>
-      </ThemedView>
+      </View>
     );
   }
 
-  // Step 2: Daily reminder
+  // Step 2: Daily reminder — dark theme, sleeping Blur mascot (concept-inspired)
   return (
-    <ThemedView style={styles.container}>
+    <View style={styles.reminderContainer}>
       <SafeAreaView style={styles.safeArea} edges={['top', 'bottom']}>
-        <View style={styles.content}>
-          <ThemedText style={styles.reminderTitle}>
-            Would you like a gentle daily reminder?
-          </ThemedText>
+        <View style={styles.reminderContent}>
+          <View style={styles.reminderTextBlock}>
+          <ThemedText style={styles.reminderTitle} lightColor="#FFFFFF" darkColor="#FFFFFF">
+            Want a daily reminder?
+            </ThemedText>
+            <ThemedText style={styles.reminderSubline} lightColor="rgba(255,255,255,0.9)" darkColor="rgba(255,255,255,0.9)">
+                One quiet nudge, once a day.
+            </ThemedText>
+          </View>
           {Platform.OS === 'android' ? (
             <>
-              <ThemedText style={styles.reminderSubline}>
-                Pick a time that works for you. We’ll send one quiet reminder each day.
-              </ThemedText>
               <Pressable
                 style={styles.timeRow}
                 onPress={() => setShowTimePicker(true)}
               >
-                <ThemedText style={styles.timeRowLabel}>Remind me at</ThemedText>
+                <ThemedText style={styles.timeRowLabel} lightColor="#FFFFFF" darkColor="#FFFFFF">
+                  Remind me at
+                </ThemedText>
                 <ThemedText style={styles.timeRowValue}>
                   {formatTimeForDisplay(reminderTime)}
                 </ThemedText>
@@ -155,20 +225,23 @@ export default function OnboardingScreen() {
               )}
             </>
           ) : (
-            <>
-              <View style={styles.pickerWrap}>
-                <DateTimePicker
-                  value={reminderTime}
-                  mode="time"
-                  display="spinner"
-                  onChange={handleTimeChange}
-                />
-              </View>
-              <ThemedText style={styles.hint}>
-                You can always change this in Settings or turn it off anytime.
-              </ThemedText>
-            </>
+            <View style={styles.pickerWrap}>
+              <DateTimePicker
+                value={reminderTime}
+                mode="time"
+                display="spinner"
+                onChange={handleTimeChange}
+              />
+            </View>
           )}
+          <View style={styles.reminderMascotWrap}>
+            <Image
+              source={require('@/assets/images/mascot/blur-resting.png')}
+              style={styles.reminderMascotImage}
+              resizeMode="contain"
+              accessibilityLabel="Blur the mascot, resting"
+            />
+          </View>
         </View>
         <View style={styles.footer}>
           <Pressable
@@ -185,22 +258,33 @@ export default function OnboardingScreen() {
             onPress={handleReminderNo}
             disabled={saving}
           >
-            <ThemedText style={styles.secondaryButtonText}>Not now</ThemedText>
-          </Pressable>
-          {Platform.OS === 'android' && (
-            <ThemedText style={styles.hintAndroid}>
-              You can always change this in Settings or turn it off anytime.
+            <ThemedText style={[styles.secondaryButtonText, styles.secondaryButtonTextOnDark]}>
+              Not now
             </ThemedText>
-          )}
+          </Pressable>
+          <ThemedText style={styles.hintOnDark} lightColor="rgba(255,255,255,0.5)" darkColor="rgba(255,255,255,0.5)">
+            You can always change this in Settings or turn it off anytime.
+          </ThemedText>
         </View>
       </SafeAreaView>
-    </ThemedView>
+    </View>
   );
 }
+
+// Dark gradient-like background for welcome + reminder steps (concept: deep purple–blue)
+const WELCOME_BG = '#1a1a2e';
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+  },
+  reminderContainer: {
+    flex: 1,
+    backgroundColor: WELCOME_BG,
+  },
+  welcomeContainer: {
+    flex: 1,
+    backgroundColor: WELCOME_BG,
   },
   safeArea: {
     flex: 1,
@@ -213,46 +297,93 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingTop: 48,
   },
+  reminderContent: {
+    flex: 1,
+    paddingTop: 64,
+    alignItems: 'center',
+  },
+  reminderTextBlock: {
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    marginBottom: 20,
+  },
+  welcomeContent: {
+    flex: 1,
+    paddingTop: 64,
+    alignItems: 'center',
+  },
+  welcomeTextBlock: {
+    alignItems: 'center',
+    paddingHorizontal: 16,
+  },
   appName: {
-    fontSize: 32,
-    fontWeight: '700',
-    lineHeight: 40,
+    fontSize: 42,
+    fontWeight: '800',
+    lineHeight: 48,
+    letterSpacing: 0.5,
     paddingVertical: 4,
-    marginBottom: 12,
+    marginBottom: 14,
     textAlign: 'center',
   },
   tagline: {
-    fontSize: 18,
-    lineHeight: 26,
+    fontSize: 22,
+    lineHeight: 30,
+    fontWeight: '500',
     textAlign: 'center',
-    marginBottom: 24,
-    opacity: 0.9,
+    marginBottom: 16,
+    opacity: 0.95,
+  },
+  privacyOnWelcome: {
+    fontSize: 14,
+    textAlign: 'center',
   },
   privacy: {
     fontSize: 14,
     opacity: 0.6,
     textAlign: 'center',
   },
+  mascotWrap: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    minHeight: 200,
+    marginTop: 24,
+  },
+  mascotImage: {
+    width: 240,
+    height: 240,
+  },
   reminderTitle: {
-    fontSize: 22,
-    fontWeight: '600',
+    fontSize: 26,
+    fontWeight: '700',
     textAlign: 'center',
-    marginBottom: 24,
-    lineHeight: 30,
+    marginBottom: 14,
+    lineHeight: 34,
   },
   reminderSubline: {
-    fontSize: 15,
-    opacity: 0.85,
+    fontSize: 17,
+    fontWeight: '400',
     textAlign: 'center',
-    marginBottom: 20,
-    lineHeight: 22,
+    lineHeight: 24,
+  },
+  reminderMascotWrap: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    minHeight: 200,
+    marginTop: 40,
+  },
+  reminderMascotImage: {
+    width: 340,
+    height: 340,
   },
   timeRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
+    alignSelf: 'stretch',
     gap: 8,
-    paddingVertical: 14,
+    paddingVertical: 16,
     paddingHorizontal: 20,
     borderRadius: 12,
     backgroundColor: 'rgba(42, 157, 143, 0.2)',
@@ -260,12 +391,12 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(42, 157, 143, 0.4)',
   },
   timeRowLabel: {
-    fontSize: 16,
-    opacity: 0.9,
+    fontSize: 17,
+    fontWeight: '400',
   },
   timeRowValue: {
-    fontSize: 18,
-    fontWeight: '700',
+    fontSize: 17,
+    fontWeight: '600',
     color: ACCENT_COLOR,
   },
   pickerWrap: {
@@ -282,10 +413,25 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginTop: 16,
   },
+  hintOnDark: {
+    fontSize: 13,
+    fontWeight: '400',
+    textAlign: 'center',
+    marginTop: 12,
+  },
+  secondaryButtonTextOnDark: {
+    fontSize: 17,
+    fontWeight: '500',
+    color: 'rgba(255,255,255,0.9)',
+    opacity: 1,
+  },
   footer: {
     paddingBottom: 48,
+    alignSelf: 'stretch',
+    alignItems: 'center',
   },
   primaryButton: {
+    alignSelf: 'stretch',
     borderRadius: 12,
     paddingVertical: 18,
     alignItems: 'center',
@@ -293,15 +439,16 @@ const styles = StyleSheet.create({
   },
   primaryButtonText: {
     color: '#FFFFFF',
-    fontSize: 18,
-    fontWeight: '700',
+    fontSize: 17,
+    fontWeight: '600',
   },
   secondaryButton: {
     alignItems: 'center',
     paddingVertical: 14,
   },
   secondaryButtonText: {
-    fontSize: 16,
-    opacity: 0.7,
+    fontSize: 17,
+    fontWeight: '500',
+    opacity: 0.9,
   },
 });

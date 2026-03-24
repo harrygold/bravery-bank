@@ -1,12 +1,24 @@
 import { useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { ActivityIndicator, Platform, Pressable, StyleSheet, View } from 'react-native';
+import {
+  ActivityIndicator,
+  Dimensions,
+  Image,
+  Platform,
+  Pressable,
+  StyleSheet,
+  View,
+} from 'react-native';
 import Animated, {
   FadeIn,
   FadeOut,
   useAnimatedStyle,
   useSharedValue,
   withSpring,
+  withTiming,
+  withRepeat,
+  withSequence,
+  withDelay,
 } from 'react-native-reanimated';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -15,18 +27,148 @@ import { ThemedView } from '@/components/themed-view';
 import { Colors } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { useBraveryBank } from '@/hooks/useBraveryBank';
-import { loadData } from '@/utils/storage';
+import { loadData, saveData } from '@/utils/storage';
 
 // App accent color - warm teal
 const ACCENT_COLOR = '#2A9D8F';
-const ACCENT_COLOR_LIGHT = '#40B4A6';
+const screenWidth = Dimensions.get('window').width;
+const screenHeight = Dimensions.get('window').height;
+
+type ConfettiPieceSpec = {
+  id: string;
+  left: number;
+  top: number;
+  width: number;
+  height: number;
+  color: string;
+  delay: number;
+  duration: number;
+  fallDistance: number;
+  wobbleAmp: number;
+  wobblePeriod: number;
+  rotationDeg: number;
+};
+
+const confettiColors = ['#2A9D8F', '#40B4A6', '#E07A5F', '#F4D35E', '#FFFFFF'];
+
+function ConfettiPiece({ spec }: { spec: ConfettiPieceSpec }) {
+  const translateY = useSharedValue(0);
+  const translateX = useSharedValue(0);
+  const rotateZ = useSharedValue(0);
+  const opacity = useSharedValue(1);
+
+  const halfWobble = Math.max(50, Math.round(spec.wobblePeriod / 2));
+  const oscillations = Math.max(1, Math.round(spec.duration / spec.wobblePeriod));
+
+  useEffect(() => {
+    translateY.value = withDelay(
+      spec.delay,
+      withTiming(spec.fallDistance, { duration: spec.duration })
+    );
+
+    opacity.value = withDelay(
+      spec.delay + spec.duration * 0.7,
+      withTiming(0, { duration: spec.duration * 0.3 })
+    );
+
+    rotateZ.value = withDelay(
+      spec.delay,
+      withTiming(spec.rotationDeg, { duration: spec.duration })
+    );
+
+    // Slight horizontal wobble using withRepeat + withSequence.
+    translateX.value = withDelay(
+      spec.delay,
+      withRepeat(
+        withSequence(
+          withTiming(-spec.wobbleAmp, { duration: halfWobble }),
+          withTiming(spec.wobbleAmp, { duration: halfWobble })
+        ),
+        oscillations,
+        false
+      )
+    );
+  }, [spec, halfWobble, oscillations, rotateZ, translateX, translateY, opacity]);
+
+  const animatedStyle = useAnimatedStyle(() => {
+    return {
+      position: 'absolute',
+      left: spec.left,
+      top: spec.top,
+      width: spec.width,
+      height: spec.height,
+      backgroundColor: spec.color,
+      opacity: opacity.value,
+      borderRadius: 2,
+      transform: [
+        { translateX: translateX.value },
+        { translateY: translateY.value },
+        { rotateZ: `${rotateZ.value}deg` },
+      ],
+    };
+  });
+
+  return <Animated.View style={animatedStyle} />;
+}
+
+function ConfettiRain({ pieceCount = 90 }: { pieceCount?: number }) {
+  const pieces = useState<ConfettiPieceSpec[]>(() => {
+    const generate = (): ConfettiPieceSpec[] => {
+      const fallDistance = screenHeight + 50;
+      const specs: ConfettiPieceSpec[] = [];
+
+      const randInt = (min: number, max: number) =>
+        Math.floor(min + Math.random() * (max - min + 1));
+      const randFloat = (min: number, max: number) => min + Math.random() * (max - min);
+
+      for (let i = 0; i < pieceCount; i++) {
+        const width = randInt(8, 12);
+        const height = randInt(6, 10);
+        const left = randFloat(0, Math.max(0, screenWidth - width));
+        const top = randFloat(-600, -20);
+        const delay = randInt(0, 2000);
+        const duration = randInt(2500, 4500);
+        const wobbleAmp = randInt(15, 25);
+        const wobblePeriod = randInt(250, 600);
+        const rotationDeg = randInt(0, 360);
+        const color = confettiColors[randInt(0, confettiColors.length - 1)];
+
+        specs.push({
+          id: `c_${i}`,
+          left,
+          top,
+          width,
+          height,
+          color,
+          delay,
+          duration,
+          fallDistance,
+          wobbleAmp,
+          wobblePeriod,
+          rotationDeg,
+        });
+      }
+
+      return specs;
+    };
+
+    return generate();
+  })[0];
+
+  // Trigger is handled per-piece in useEffect; rendering starts the rain.
+  return (
+    <>
+      {pieces.map((spec) => (
+        <ConfettiPiece key={spec.id} spec={spec} />
+      ))}
+    </>
+  );
+}
 
 export default function TodayScreen() {
   const router = useRouter();
   const colorScheme = useColorScheme() ?? 'light';
   const colors = Colors[colorScheme];
-  const [checkedOnboarding, setCheckedOnboarding] = useState(false);
-
   const {
     isLoading,
     braveDays,
@@ -34,18 +176,48 @@ export default function TodayScreen() {
     todayStatus,
     completeToday,
     restToday,
+    returnToChallenge,
+    skipToNextChallenge,
   } = useBraveryBank();
 
-  // Redirect to onboarding on first launch (show loading until we know)
+  const shouldConsiderCelebration = todayStatus === 'completed' && braveDays >= 50;
+  const [hasSeenCelebration, setHasSeenCelebration] = useState<boolean | null>(null);
+
   useEffect(() => {
+    let mounted = true;
+    if (!shouldConsiderCelebration) {
+      setHasSeenCelebration(true);
+      return;
+    }
+
     loadData().then((data) => {
-      if (!data.hasCompletedOnboarding) {
-        router.replace('/onboarding');
-        return;
-      }
-      setCheckedOnboarding(true);
+      if (!mounted) return;
+      setHasSeenCelebration(data.hasSeenCelebration);
     });
-  }, [router]);
+
+    return () => {
+      mounted = false;
+    };
+  }, [shouldConsiderCelebration]);
+
+  const shouldShowCelebration =
+    shouldConsiderCelebration && hasSeenCelebration === false;
+
+  const [showContinueButton, setShowContinueButton] = useState(false);
+
+  useEffect(() => {
+    if (!shouldShowCelebration) {
+      setShowContinueButton(false);
+      return;
+    }
+
+    setShowContinueButton(false);
+    const timeout = setTimeout(() => {
+      setShowContinueButton(true);
+    }, 7000);
+
+    return () => clearTimeout(timeout);
+  }, [shouldShowCelebration]);
 
   // Button animation
   const buttonScale = useSharedValue(1);
@@ -70,7 +242,14 @@ export default function TodayScreen() {
     await restToday();
   };
 
-  if (isLoading || !checkedOnboarding) {
+  const handleContinueCelebration = async () => {
+    const freshData = await loadData();
+    const updatedData = { ...freshData, hasSeenCelebration: true };
+    await saveData(updatedData);
+    setHasSeenCelebration(true);
+  };
+
+  if (isLoading || (shouldConsiderCelebration && hasSeenCelebration === null)) {
     return (
       <ThemedView style={styles.container}>
         <ActivityIndicator size="large" color={ACCENT_COLOR} />
@@ -87,6 +266,11 @@ export default function TodayScreen() {
         ]}
         edges={['top']}
       >
+        {shouldShowCelebration && (
+          <View style={styles.confettiOverlay} pointerEvents="none">
+            <ConfettiRain />
+          </View>
+        )}
         {/* Header */}
         <View style={styles.header}>
           <ThemedText style={styles.appName}>Bravery Bank</ThemedText>
@@ -105,37 +289,135 @@ export default function TodayScreen() {
         <ThemedText style={styles.counterSubLabel}>Days you chose courage</ThemedText>
       </Pressable>
 
-      {/* Challenge Card */}
-      <View style={[
-        styles.challengeCard,
-        { 
-          backgroundColor: colorScheme === 'dark' ? '#1E2A2A' : '#F0F9F8',
-          opacity: todayStatus !== 'none' ? 0.6 : 1,
-        }
-      ]}>
-        {todayStatus === 'none' ? (
-          <Animated.View entering={FadeIn.duration(300)}>
-            <ThemedText style={styles.challengeLabel}>Today's Challenge</ThemedText>
-            <ThemedText style={styles.challengeText}>{todayChallenge}</ThemedText>
-          </Animated.View>
-        ) : todayStatus === 'completed' ? (
-          <Animated.View entering={FadeIn.duration(300)} style={styles.completedContainer}>
-            <ThemedText style={styles.completedIcon} includeFontPadding={false}>
-              ✓
+      {/* Rest day: card with Blur + rest message inside, then button — no scroll */}
+      {todayStatus === 'rested' ? (
+        <>
+          <View style={[
+            styles.restDayCard,
+            {
+              backgroundColor: colorScheme === 'dark' ? '#1E2A2A' : '#F0F9F8',
+              opacity: 0.6,
+            },
+          ]}>
+            <Animated.View entering={FadeIn.duration(300)} style={styles.restDayCardContent}>
+              <View style={styles.restDayCardMascotWrap}>
+                <Image
+                  source={require('@/assets/images/mascot/blur-resting.png')}
+                  style={styles.restDayCardMascotImage}
+                  resizeMode="contain"
+                  accessibilityLabel="Blur the mascot, resting"
+                />
+              </View>
+              <ThemedText style={styles.restIconSmall} includeFontPadding={false}>
+                🌙
+              </ThemedText>
+              <ThemedText style={styles.completedText}>Rest day — that&apos;s okay</ThemedText>
+              <ThemedText style={styles.seeYouText}>Your courage will be here tomorrow</ThemedText>
+            </Animated.View>
+          </View>
+          <Pressable
+            style={styles.restDayReturnButton}
+            onPress={returnToChallenge}
+          >
+              <ThemedText style={[styles.restDayReturnButtonText, { color: ACCENT_COLOR }]}>
+              ✨ Actually, I&apos;m feeling brave
             </ThemedText>
-            <ThemedText style={styles.completedText}>You chose courage today</ThemedText>
-            <ThemedText style={styles.seeYouText}>See you tomorrow</ThemedText>
-          </Animated.View>
-        ) : (
-          <Animated.View entering={FadeIn.duration(300)} style={styles.completedContainer}>
-            <ThemedText style={styles.restIcon} includeFontPadding={false}>
-              🌙
-            </ThemedText>
-            <ThemedText style={styles.completedText}>Rest day — that's okay</ThemedText>
-            <ThemedText style={styles.seeYouText}>Your courage will be here tomorrow</ThemedText>
-          </Animated.View>
-        )}
-      </View>
+          </Pressable>
+        </>
+      ) : (
+        <>
+          {/* Challenge Card (none or completed) */}
+          <View style={[
+            styles.challengeCard,
+            {
+              backgroundColor: colorScheme === 'dark' ? '#1E2A2A' : '#F0F9F8',
+          opacity:
+            shouldShowCelebration
+              ? 1
+              : todayStatus !== 'none'
+                ? 0.6
+                : 1,
+          justifyContent:
+            shouldShowCelebration ? 'flex-start' : 'center',
+          marginBottom: shouldShowCelebration ? 0 : 32,
+            },
+          ]}>
+            {todayStatus === 'none' ? (
+              <Animated.View entering={FadeIn.duration(300)}>
+                <ThemedText style={styles.challengeLabel}>Today&apos;s Challenge</ThemedText>
+                <ThemedText style={styles.challengeText}>{todayChallenge}</ThemedText>
+              </Animated.View>
+            ) : shouldShowCelebration ? (
+              <Animated.View
+                entering={FadeIn.duration(300)}
+                style={styles.celebrationContainer}
+              >
+                <Image
+                  source={require('@/assets/images/mascot/blur-celebration.png')}
+                  style={styles.celebrationImage}
+                  resizeMode="contain"
+                  accessibilityLabel="Blur celebrating"
+                />
+                <ThemedText
+                  style={styles.celebrationTitle}
+                  includeFontPadding={false}
+                >
+                  50 moments of courage.
+                </ThemedText>
+                <ThemedText
+                  style={[styles.celebrationSubtitle, { color: colors.text }]}
+                  includeFontPadding={false}
+                >
+                  You did something most people never do.
+                </ThemedText>
+                <ThemedText
+                  style={[styles.celebrationBody, { color: colors.text }]}
+                  includeFontPadding={false}
+                >
+                  From a deep breath to telling someone your story — you showed up, again and again.
+                </ThemedText>
+                {showContinueButton && (
+                  <Animated.View
+                    entering={FadeIn.duration(500)}
+                    style={styles.celebrationContinueWrap}
+                  >
+                    <Pressable
+                      style={[
+                        styles.primaryButton,
+                        styles.celebrationContinueButton,
+                        { backgroundColor: ACCENT_COLOR },
+                      ]}
+                      onPress={handleContinueCelebration}
+                    >
+                      <ThemedText style={styles.primaryButtonText}>
+                        Continue
+                      </ThemedText>
+                    </Pressable>
+                  </Animated.View>
+                )}
+              </Animated.View>
+            ) : (
+              <Animated.View
+                entering={FadeIn.duration(300)}
+                style={styles.completedContainer}
+              >
+                <ThemedText
+                  style={styles.completedIcon}
+                  includeFontPadding={false}
+                >
+                  ✓
+                </ThemedText>
+                <ThemedText style={styles.completedText}>
+                  You chose courage today
+                </ThemedText>
+                <ThemedText style={styles.seeYouText}>
+                  See you tomorrow
+                </ThemedText>
+              </Animated.View>
+            )}
+          </View>
+        </>
+      )}
 
       {/* Action Buttons */}
       {todayStatus === 'none' && (
@@ -144,7 +426,7 @@ export default function TodayScreen() {
           exiting={FadeOut.duration(200)}
           style={styles.buttonContainer}
         >
-          <Animated.View style={animatedButtonStyle}>
+          <Animated.View style={[animatedButtonStyle, styles.primaryButtonWrap]}>
             <Pressable
               style={[styles.primaryButton, { backgroundColor: ACCENT_COLOR }]}
               onPress={handleComplete}
@@ -162,6 +444,16 @@ export default function TodayScreen() {
           </Pressable>
         </Animated.View>
       )}
+
+        {/* DEV: Skip to next challenge (temporary, remove before release) */}
+        <Pressable
+          style={styles.devSkipButton}
+          onPress={skipToNextChallenge}
+        >
+          <ThemedText style={styles.devSkipText}>
+            DEV: Skip to Next Challenge →
+          </ThemedText>
+        </Pressable>
       </SafeAreaView>
     </ThemedView>
   );
@@ -191,6 +483,7 @@ const styles = StyleSheet.create({
   },
   tagline: {
     fontSize: 14,
+    fontWeight: '400',
     opacity: 0.7,
   },
   counterContainer: {
@@ -210,6 +503,7 @@ const styles = StyleSheet.create({
   },
   counterSubLabel: {
     fontSize: 13,
+    fontWeight: '400',
     opacity: 0.6,
     marginTop: 2,
   },
@@ -221,12 +515,50 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     overflow: 'visible',
   },
+  restDayCard: {
+    borderRadius: 16,
+    padding: 24,
+    marginBottom: 0,
+    overflow: 'visible',
+  },
+  restDayCardContent: {
+    alignItems: 'center',
+    overflow: 'visible',
+  },
+  restDayCardMascotWrap: {
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  restDayCardMascotImage: {
+    width: 180,
+    height: 180,
+  },
+  restIconSmall: {
+    fontSize: 32,
+    lineHeight: 40,
+    marginBottom: 8,
+  },
+  restDayReturnButton: {
+    alignSelf: 'center',
+    marginTop: 32,
+    paddingVertical: 12,
+    paddingHorizontal: 24,
+    borderRadius: 25,
+    borderWidth: 1,
+    borderColor: ACCENT_COLOR,
+    backgroundColor: 'transparent',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  restDayReturnButtonText: {
+    fontSize: 16,
+    fontWeight: '600',
+  },
   challengeLabel: {
     fontSize: 12,
     fontWeight: '600',
     textTransform: 'uppercase',
     letterSpacing: 1,
-    opacity: 0.6,
     marginBottom: 12,
   },
   challengeText: {
@@ -238,6 +570,43 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     overflow: 'visible',
     paddingTop: 8,
+  },
+  celebrationContainer: {
+    alignItems: 'center',
+    alignSelf: 'stretch',
+    width: '100%',
+    overflow: 'visible',
+  },
+  celebrationContinueWrap: {
+    alignSelf: 'stretch',
+    width: '100%',
+  },
+  celebrationImage: {
+    width: 180,
+    height: 180,
+  },
+  celebrationTitle: {
+    fontSize: 24,
+    fontWeight: '700',
+    lineHeight: 32,
+    color: ACCENT_COLOR,
+    textAlign: 'center',
+    marginTop: 8,
+  },
+  celebrationSubtitle: {
+    fontSize: 18,
+    fontWeight: '500',
+    textAlign: 'center',
+    opacity: 0.7,
+    marginTop: 4,
+  },
+  celebrationBody: {
+    fontSize: 16,
+    fontWeight: '400',
+    textAlign: 'center',
+    opacity: 0.6,
+    lineHeight: 24,
+    marginTop: 4,
   },
   completedIcon: {
     fontSize: 48,
@@ -261,17 +630,26 @@ const styles = StyleSheet.create({
   },
   seeYouText: {
     fontSize: 14,
+    fontWeight: '400',
     opacity: 0.6,
     textAlign: 'center',
   },
   buttonContainer: {
     marginTop: 'auto',
   },
+  primaryButtonWrap: {
+    alignSelf: 'stretch',
+  },
   primaryButton: {
     borderRadius: 12,
     paddingVertical: 18,
     alignItems: 'center',
+    alignSelf: 'stretch',
     marginBottom: 16,
+  },
+  celebrationContinueButton: {
+    marginBottom: 0,
+    marginTop: 16,
   },
   primaryButtonText: {
     color: '#FFFFFF',
@@ -284,6 +662,26 @@ const styles = StyleSheet.create({
   },
   secondaryButtonText: {
     fontSize: 16,
+    fontWeight: '500',
     opacity: 0.7,
+  },
+  devSkipButton: {
+    alignSelf: 'center',
+    paddingVertical: 12,
+    marginTop: 'auto',
+    marginBottom: 8,
+  },
+  devSkipText: {
+    fontSize: 12,
+    opacity: 0.5,
+  },
+  confettiOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    zIndex: 1000,
+    pointerEvents: 'none',
   },
 });

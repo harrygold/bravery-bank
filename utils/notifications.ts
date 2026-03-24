@@ -9,9 +9,21 @@ const DAILY_REMINDER_IDENTIFIER = 'bravery-bank-daily-reminder';
 
 // PRD: rotate 2-3 variants for the daily notification body
 const DAILY_MESSAGE_BODIES = [
-  "Today's quiet courage moment is ready.",
-  "A tiny brave moment for today.",
-  "Your daily courage challenge is here.",
+  "Today's tiny brave moment is waiting for you.",
+  "A small act of courage goes a long way.",
+  "Ready for today's challenge? You've got this.",
+  "One brave thing. That's all it takes.",
+  "Your courage challenge for today is here.",
+  "Bravery doesn't have to be loud. Start small today.",
+  "Hey — today's challenge is a good one.",
+  "A little courage, right on time.",
+  "Your daily dose of brave is ready.",
+  "Small steps still count. Today's challenge is here.",
+  "Something brave is waiting for you today.",
+  "You showed up. That's already brave. Now check today's challenge.",
+  "Courage is a muscle. Time for today's rep.",
+  "Your next brave moment is ready when you are.",
+  "Open the app. One challenge. That's it.",
 ];
 
 /**

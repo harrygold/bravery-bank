@@ -7,6 +7,7 @@ import {
 } from '@/utils/storage';
 import Constants from 'expo-constants';
 import { useCallback, useEffect, useState } from 'react';
+import { Alert } from 'react-native';
 
 const isExpoGo = Constants.appOwnership === 'expo';
 
@@ -80,7 +81,13 @@ export const useSettings = (): UseSettingsReturn => {
       if (value && data) {
         const { scheduleDailyReminder } = await import('@/utils/notifications');
         const granted = await scheduleDailyReminder(data.notificationTime);
-        if (!granted) return;
+        if (!granted) {
+          Alert.alert(
+            'Notifications blocked',
+            "It looks like notifications are turned off in your phone's settings. You can enable them there to get daily reminders."
+          );
+          return; // Don't update the setting — leave toggle off
+        }
       } else {
         const { cancelDailyReminder } = await import('@/utils/notifications');
         await cancelDailyReminder();

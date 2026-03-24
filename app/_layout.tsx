@@ -1,5 +1,6 @@
 import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native';
 import Constants from 'expo-constants';
+import * as Notifications from 'expo-notifications';
 import { Stack, useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect, useState } from 'react';
@@ -15,23 +16,12 @@ import { loadData } from '@/utils/storage';
 const isExpoGo = Constants.appOwnership === 'expo';
 
 export const unstable_settings = {
-  anchor: '(tabs)',
+  initialRouteName: 'index',
 };
 
 export default function RootLayout() {
   const colorScheme = useColorScheme();
   const router = useRouter();
-  const [hasCheckedOnboarding, setHasCheckedOnboarding] = useState(false);
-
-  // Redirect to onboarding on first launch (runs once when app opens)
-  useEffect(() => {
-    loadData().then((data) => {
-      if (!data.hasCompletedOnboarding) {
-        router.replace('/onboarding');
-      }
-      setHasCheckedOnboarding(true);
-    });
-  }, [router]);
 
   useEffect(() => {
     if (isExpoGo) return;
@@ -39,6 +29,21 @@ export default function RootLayout() {
       setNotificationHandler();
     });
   }, []);
+
+  useEffect(() => {
+    const subscription = Notifications.addNotificationResponseReceivedListener((response) => {
+      router.replace('/(tabs)');
+    });
+    return () => subscription.remove();
+  }, [router]);
+
+  useEffect(() => {
+    Notifications.getLastNotificationResponseAsync().then((response) => {
+      if (response) {
+        router.replace('/(tabs)');
+      }
+    });
+  }, [router]);
 
   useEffect(() => {
     if (isExpoGo) return;
@@ -56,28 +61,20 @@ export default function RootLayout() {
     <SafeAreaProvider>
       <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
         <BraveryBankProvider>
-        {/* Cover screen until we've checked onboarding so we never flash (tabs) before redirect */}
-        {!hasCheckedOnboarding && (
-          <View style={[StyleSheet.absoluteFillObject, styles.loadingOverlay]} pointerEvents="none">
-            <ActivityIndicator size="large" color="#2A9D8F" />
-          </View>
-        )}
-        <Stack>
-          <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-          <Stack.Screen
-            name="onboarding"
-            options={{ headerShown: false }}
-          />
-          <Stack.Screen 
-            name="settings" 
-            options={{ 
-              headerShown: false,
-              presentation: 'modal',
-            }} 
-          />
-          <Stack.Screen name="modal" options={{ presentation: 'modal', title: 'Modal' }} />
-        </Stack>
-        <StatusBar style="auto" />
+          <Stack>
+            <Stack.Screen name="index" options={{ headerShown: false }} />
+            <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+            <Stack.Screen name="onboarding" options={{ headerShown: false }} />
+            <Stack.Screen
+              name="settings"
+              options={{
+                headerShown: false,
+                presentation: 'modal',
+              }}
+            />
+            <Stack.Screen name="modal" options={{ presentation: 'modal', title: 'Modal' }} />
+          </Stack>
+          <StatusBar style="auto" />
         </BraveryBankProvider>
       </ThemeProvider>
     </SafeAreaProvider>
