@@ -3,13 +3,20 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 // Storage key
 const STORAGE_KEY = 'bravery_bank_data';
 
+/** One calendar day the user chose "I Did It" and which challenge it was. */
+export interface CompletedDateEntry {
+  date: string; // YYYY-MM-DD
+  /** Challenge index for that completion; -1 = legacy data (unknown challenge). */
+  challengeIndex: number;
+}
+
 // Data structure based on PRD section 9.2
 export interface BraveryBankData {
   totalBraveDays: number;
   lastActivityDate: string; // ISO date string "YYYY-MM-DD"
   lastChallengeIndex: number;
   todayStatus: 'completed' | 'rested' | 'none';
-  completedDates: string[]; // Array of ISO date strings
+  completedDates: CompletedDateEntry[];
   createdAt: string; // ISO datetime string
   // Settings
   darkMode: boolean | null; // null = follow system
@@ -44,7 +51,10 @@ export const getDefaultData = (): BraveryBankData => ({
 // Get today's date as YYYY-MM-DD string
 export const getTodayString = (): string => {
   const now = new Date();
-  return now.toISOString().split('T')[0];
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, '0');
+  const day = String(now.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
 };
 
 // Calculate days between two date strings
@@ -61,6 +71,17 @@ export const loadData = async (): Promise<BraveryBankData> => {
     const jsonValue = await AsyncStorage.getItem(STORAGE_KEY);
     if (jsonValue !== null) {
       const data = JSON.parse(jsonValue) as BraveryBankData;
+      // Backfill: completedDates used to be string[]; migrate to { date, challengeIndex }[]
+      if (!Array.isArray(data.completedDates)) {
+        data.completedDates = [];
+      } else if (
+        data.completedDates.length > 0 &&
+        typeof (data.completedDates as unknown[])[0] === 'string'
+      ) {
+        data.completedDates = (data.completedDates as unknown as string[]).map(
+          (date) => ({ date, challengeIndex: -1 })
+        );
+      }
       // Backfill: existing users who haven't seen onboarding flag get true (skip onboarding)
       if (data.hasCompletedOnboarding === undefined) {
         data.hasCompletedOnboarding = true;
@@ -81,7 +102,7 @@ export const loadData = async (): Promise<BraveryBankData> => {
     }
     return getDefaultData();
   } catch (error) {
-    console.error('Error loading data:', error);
+    if (__DEV__) console.error('Error loading data:', error);
     return getDefaultData();
   }
 };
@@ -93,7 +114,7 @@ export const saveData = async (data: BraveryBankData): Promise<boolean> => {
     await AsyncStorage.setItem(STORAGE_KEY, jsonValue);
     return true;
   } catch (error) {
-    console.error('Error saving data:', error);
+    if (__DEV__) console.error('Error saving data:', error);
     return false;
   }
 };
@@ -104,7 +125,7 @@ export const clearData = async (): Promise<boolean> => {
     await AsyncStorage.removeItem(STORAGE_KEY);
     return true;
   } catch (error) {
-    console.error('Error clearing data:', error);
+    if (__DEV__) console.error('Error clearing data:', error);
     return false;
   }
 };
@@ -124,7 +145,10 @@ export const getCurrentWeekDays = (): string[] => {
   for (let i = 0; i < 7; i++) {
     const date = new Date(sunday);
     date.setDate(sunday.getDate() + i);
-    days.push(date.toISOString().split('T')[0]);
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const d = String(date.getDate()).padStart(2, '0');
+    days.push(`${year}-${month}-${d}`);
   }
   
   return days;
@@ -136,6 +160,9 @@ export const getLast7Days = (): string[] => {
 };
 
 // Check if a date is in the completed dates array
-export const isDateCompleted = (date: string, completedDates: string[]): boolean => {
-  return completedDates.includes(date);
+export const isDateCompleted = (
+  date: string,
+  completedDates: CompletedDateEntry[]
+): boolean => {
+  return completedDates.some((entry) => entry.date === date);
 };

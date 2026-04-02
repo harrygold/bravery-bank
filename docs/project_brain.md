@@ -1,7 +1,7 @@
 # Bravery Bank — Project Brain
 
 **Canonical source of truth for architecture, features, and decisions.**  
-Last updated: 2026-03-18.
+Last updated: 2026-03-23.
 
 ---
 
@@ -44,6 +44,7 @@ bravery-bank/
 │   │   └── explore.tsx     # Progress screen
 │   ├── onboarding.tsx      # First-run: Welcome + Daily reminder (2 steps)
 │   ├── settings.tsx        # Settings (modal)
+│   ├── brave-acts.tsx      # My Brave Acts history (modal)
 │   └── modal.tsx           # Placeholder modal
 ├── components/             # Reusable UI
 │   ├── themed-text.tsx
@@ -96,7 +97,7 @@ bravery-bank/
 | `lastActivityDate` | string | Last date we updated (YYYY-MM-DD) |
 | `lastChallengeIndex` | number | Index into challenges array for “next” challenge |
 | `todayStatus` | `'completed' \| 'rested' \| 'none'` | Today’s choice |
-| `completedDates` | string[] | All dates user chose “I Did It” (YYYY-MM-DD) |
+| `completedDates` | `CompletedDateEntry[]` | Each completion: `{ date: string, challengeIndex: number }` (YYYY-MM-DD dates). `challengeIndex: -1` means legacy data from before challenge tracking was added. |
 | `createdAt` | string | ISO datetime |
 | `darkMode` | boolean \| null | null = follow system |
 | `hapticsEnabled` | boolean | Haptic on “I Did It” |
@@ -108,6 +109,8 @@ bravery-bank/
 | `hasCompletedFirstCycle` | boolean | If true, user has seen the post-completion welcome screen |
 
 **Helpers:** `getTodayString()`, `daysBetween()`, `getCurrentWeekDays()` (Sunday–Saturday), `isDateCompleted(date, completedDates)`, `getDefaultData()`.
+
+**Backfill:** `loadData()` converts legacy `completedDates` stored as plain string arrays into `{ date, challengeIndex: -1 }` objects.
 
 **New-day behavior:** On load, if `lastActivityDate !== today`, we advance `lastChallengeIndex` by 1 (regardless of how many days were missed — user always picks up the next challenge in sequence), set `todayStatus: 'none'`, and persist.
 
@@ -123,7 +126,7 @@ bravery-bank/
 
 - **Onboarding (first launch / after Reset)**  
   - Step 1: Welcome (“Bravery Bank”, tagline, privacy line, “I’m Ready”).  
-  - Step 2: “Would you like a gentle daily reminder?” — tappable “Remind me at [time]” (Android opens system time picker on tap), “Yes, remind me” / “Not now”, “You can always change this in Settings or turn it off anytime.”  
+  - Step 2: “Want a daily reminder?” — tappable time (accent), dynamic “Yes, remind me at [time]” / “Not now”, hint at bottom.  
   - Root layout checks `hasCompletedOnboarding`; if false, shows loading then `router.replace('/onboarding')` so (tabs) never flashes.
 
 - **Today screen**  
@@ -144,14 +147,15 @@ bravery-bank/
   - `returnToChallenge()` added to BraveryBankContext: sets `todayStatus` back to `'none'` and saves, so the challenge card reappears for the same day.
 
 - **Progress screen**  
-  - Brave Days total.  
+  - Brave Days.  
   - When `totalBraveDays >= 50`, a permanent one-line badge appears below the encouragement text (above the corner Blur mascot): “✨ 50-Day Journey Complete” (accent teal, no card).  
   - This week: S–S with dots (filled + checkmark for completed days, teal ring for today).  
+  - Encouragement text below “THIS WEEK” is left-aligned within a centered block for cleaner multi-line wrapping.  
   - Copy varies by count (0, 1, 2–6, 7+).  
   - Settings gear → Settings modal.
 
 - **Blur mascot on Progress screen (updated)**  
-  - When totalBraveDays is 0: sad-walk Blur (blur-sad-walk.png) appears next to the Brave Days counter in a horizontal row layout, feet aligned with "Brave Days Total" baseline.  
+  - When totalBraveDays is 0: sad-walk Blur (blur-sad-walk.png) appears next to the Brave Days counter in a horizontal row layout, feet aligned with “Brave Days” baseline.  
   - When totalBraveDays > 0: Brave Days counter returns to original centered layout (no row). Excited Blur (blur-excited.png) appears in the bottom-right corner of the screen as a celebratory decorative element, absolutely positioned above the tab bar.
 
 - **Challenges replaced (50 optimized)**  
@@ -233,7 +237,7 @@ bravery-bank/
 
 - **50-day celebration screen**  
   - When `todayStatus === 'completed' && braveDays >= 50 && hasSeenCelebration === false`, Today replaces the normal completion UI with a dedicated celebration card.  
-  - Card uses `blur-celebration.png` (180×180), includes the celebration title/subtitle/body, and a **Continue** button that fades in after 3 seconds.  
+  - Card uses `blur-celebration.png` (180×180), includes the celebration title/subtitle/body, and a **Continue** button that fades in after 3 seconds. Subtitle copy: “You did what most people won’t.” Subtitle and body are left-aligned within a centered text block.  
   - Tapping **Continue** sets `hasSeenCelebration = true` in AsyncStorage (via load-fresh-before-save) so the celebration shows exactly once.  
   - Custom confetti rain animation built with react-native-reanimated (replaced react-native-confetti-cannon). 80-100 pieces rain down with staggered delays, horizontal wobble, rotation, and fade-out. Runs ~5 seconds, then Continue button fades in after 7 seconds.
   - Challenges still cycle back to #1 on the next day via the normal day-change logic.
@@ -251,6 +255,28 @@ bravery-bank/
 - **Reset flow**  
   - Settings → Reset → context clears storage, saves default, updates context; settings UI refreshes from storage; user can then be sent to onboarding by root layout on next navigation/launch if needed.
 
+- **My Brave Acts history screen**  
+  - New modal screen at `app/brave-acts.tsx`, accessible from “View my brave acts →” link on Progress screen (below Blur mascot, right-aligned).  
+  - Shows a scrollable list of completed challenges with dates, most recent first.  
+  - Each row: date (formatted “Mar 23”) + challenge text from `getChallenge(challengeIndex)`.  
+  - Link only appears when `completedDates` has at least one entry.  
+  - Registered as a modal route in `app/_layout.tsx` (same pattern as Settings).
+
+- **Onboarding reminder screen simplified**  
+  - Reduced from 3 actions to 2: combined time display and confirm button into dynamic “Yes, remind me at 9:00 AM” button that updates when the user changes the time.  
+  - Title shortened: “Would you like a gentle daily reminder?” → “Want a daily reminder?”  
+  - Subtitle shortened: “Pick a time that works for you. We'll send one quiet reminder each day.” → “One quiet nudge, once a day.”
+
+- **Visual polish pass completed**  
+  - All screens standardized against `docs/design_spec.md`: Today, Progress, Settings, Onboarding/Welcome.  
+  - Font sizes 15→16 and 17→18 across all screens.  
+  - Button weights standardized to 700 for primary, 600 for outlined/secondary.  
+  - Opacity values consolidated to 0.7 (muted), 0.6 (subtle), 0.5 (faint).  
+  - “Brave Days Total” → “Brave Days” on Progress screen.  
+  - Progress encouragement text: left-aligned within centered container for cleaner multi-line wrapping.  
+  - Celebration card subtitle changed to “You did what most people won’t.”  
+  - Celebration card body text left-aligned within centered container.
+
 ---
 
 ## 7. Unfinished / partial
@@ -262,7 +288,6 @@ bravery-bank/
 - **Blur mascot integration for Today screen states (curious for challenge, excited for completion) and onboarding (hello/excited for welcome) — not yet started.**
 - **UI visual refresh:** Gradient backgrounds, updated card styling not yet started.
 - **DEV skip button needs to be removed before Google Play release.**
-- **Design spec polish pass:** `docs/design_spec.md` documents the visual system. Typography (14 font sizes→standardize), opacity (4 levels→3), and button styling inconsistencies need to be applied to screens in a future pass.
 - **Progress screen "50-Day Journey Complete" badge:** Implemented — shows when `braveDays >= 50` and remains visible for all higher counts.
 - **Continue button styling:** The Continue button on the celebration card has a compressed pill appearance that needs fixing in the visual polish pass.
 - **Typography issues on celebration screens:** The "g" descender is clipped on "courage" and "challenges" text. Celebration card text has orphaned words ("try" on its own line). To be fixed in the visual polish pass.

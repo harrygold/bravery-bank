@@ -6,6 +6,7 @@ import {
   getTodayString,
   loadData,
   saveData,
+  type CompletedDateEntry,
 } from '@/utils/storage';
 import * as Haptics from 'expo-haptics';
 import React, { useCallback, useEffect, useState } from 'react';
@@ -15,7 +16,7 @@ export interface BraveryBankValue {
   braveDays: number;
   todayChallenge: string;
   todayStatus: 'completed' | 'rested' | 'none';
-  completedDates: string[];
+  completedDates: CompletedDateEntry[];
   hapticsEnabled: boolean;
   completeToday: () => Promise<void>;
   restToday: () => Promise<void>;
@@ -54,7 +55,7 @@ export function BraveryBankProvider({ children }: { children: React.ReactNode })
           setData(storedData);
         }
       } catch (error) {
-        console.error('Error initializing data:', error);
+        if (__DEV__) console.error('Error initializing data:', error);
       } finally {
         setIsLoading(false);
       }
@@ -80,7 +81,10 @@ export function BraveryBankProvider({ children }: { children: React.ReactNode })
       ...freshData,
       totalBraveDays: freshData.totalBraveDays + 1,
       todayStatus: 'completed',
-      completedDates: [...freshData.completedDates, today],
+      completedDates: [
+        ...freshData.completedDates,
+        { date: today, challengeIndex: freshData.lastChallengeIndex },
+      ],
     };
 
     const saved = await saveData(updatedData);

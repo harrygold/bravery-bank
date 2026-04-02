@@ -212,6 +212,19 @@ export default function ProgressScreen() {
             />
           </View>
         )}
+
+        {completedDates.length > 0 && (
+          <Pressable
+            style={styles.braveActsLink}
+            onPress={() => router.push('/brave-acts')}
+            accessibilityRole="link"
+            accessibilityLabel="View my brave acts"
+          >
+            <ThemedText style={[styles.braveActsLinkText, { color: ACCENT_COLOR }]}>
+              View my brave acts →
+            </ThemedText>
+          </Pressable>
+        )}
       </SafeAreaView>
     </ThemedView>
   );
@@ -366,5 +379,18 @@ const styles = StyleSheet.create({
     textAlign: 'left',
     opacity: 0.7,
     lineHeight: 24,
+  },
+  braveActsLink: {
+    alignSelf: 'flex-end',
+    marginTop: 'auto',
+    marginBottom: 24,
+    paddingTop: 0,
+    paddingBottom: 4,
+    transform: [{ translateY: -8 }],
+  },
+  braveActsLinkText: {
+    fontSize: 14,
+    fontWeight: '600',
+    textAlign: 'right',
   },
 });

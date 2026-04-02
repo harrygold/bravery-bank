@@ -41,7 +41,7 @@ export const useSettings = (): UseSettingsReturn => {
         const storedData = await loadData();
         setData(storedData);
       } catch (error) {
-        console.error('Error loading settings:', error);
+        if (__DEV__) console.error('Error loading settings:', error);
         setData(getDefaultData());
       } finally {
         setIsLoading(false);

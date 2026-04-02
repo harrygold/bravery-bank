@@ -14,6 +14,7 @@ import { loadData, saveData, type BraveryBankData } from '@/utils/storage';
 
 const ACCENT_COLOR = '#2A9D8F';
 const ONBOARDING_BG = '#1a1a2e';
+const TEXT_ON_DARK = '#FFFFFF';
 
 export default function LauncherScreen() {
   const router = useRouter();
@@ -63,23 +64,24 @@ export default function LauncherScreen() {
                 accessibilityLabel="Blur saying hello"
               />
             </View>
-            <ThemedText style={styles.firstCycleTitle}>
+            <ThemedText
+              style={styles.firstCycleTitle}
+              lightColor={TEXT_ON_DARK}
+              darkColor={TEXT_ON_DARK}
+            >
               You completed all 50 challenges.
             </ThemedText>
             <ThemedText
-              style={[styles.firstCycleSubtitle, { color: '#FFFFFF' }]}
+              style={styles.firstCycleSubtitle}
+              lightColor={TEXT_ON_DARK}
+              darkColor={TEXT_ON_DARK}
             >
               Ready to go again?
             </ThemedText>
             <ThemedText
-              style={{
-                fontSize: 16,
-                fontWeight: '400',
-                textAlign: 'center',
-                opacity: 0.6,
-                color: '#FFFFFF',
-                marginTop: 8,
-              }}
+              style={styles.firstCycleBody}
+              lightColor={TEXT_ON_DARK}
+              darkColor={TEXT_ON_DARK}
             >
               Same challenges, braver you.
             </ThemedText>
@@ -128,7 +130,6 @@ const styles = StyleSheet.create({
     fontSize: 28,
     fontWeight: '700',
     textAlign: 'center',
-    color: '#FFFFFF',
     marginBottom: 12,
   },
   firstCycleSubtitle: {
@@ -136,6 +137,13 @@ const styles = StyleSheet.create({
     fontWeight: '500',
     textAlign: 'center',
     opacity: 0.7,
+  },
+  firstCycleBody: {
+    fontSize: 16,
+    fontWeight: '400',
+    textAlign: 'center',
+    opacity: 0.6,
+    marginTop: 8,
   },
   footer: {
     paddingBottom: 48,

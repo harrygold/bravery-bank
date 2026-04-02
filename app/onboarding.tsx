@@ -6,19 +6,21 @@ import {
     ActivityIndicator,
     Alert,
     Image,
+    Modal,
     Platform,
     Pressable,
     StyleSheet,
-    View
+    View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
-import { useColorScheme } from '@/hooks/use-color-scheme';
 import { getTodayString, loadData, saveData } from '@/utils/storage';
 
 const ACCENT_COLOR = '#2A9D8F';
+const TEXT_ON_DARK = '#FFFFFF';
+const TEXT_ON_DARK_MUTED = 'rgba(255,255,255,0.6)';
+const TEXT_ON_DARK_SOFT = 'rgba(255,255,255,0.5)';
 const isExpoGo = Constants.appOwnership === 'expo';
 
 // Parse "HH:MM" to Date (today at that time)
@@ -50,7 +52,6 @@ const formatTimeForDisplay = (date: Date): string => {
 export default function OnboardingScreen() {
   const router = useRouter();
   const { hasSeenReminder } = useLocalSearchParams<{ hasSeenReminder?: string }>();
-  const colorScheme = useColorScheme() ?? 'light';
   const [step, setStep] = useState<1 | 2>(1);
   const [reminderTime, setReminderTime] = useState<Date>(() =>
     timeStringToDate('09:00')
@@ -119,7 +120,7 @@ export default function OnboardingScreen() {
 
       router.replace('/(tabs)');
     } catch (error) {
-      console.error('Error finishing onboarding:', error);
+      if (__DEV__) console.error('Error finishing onboarding:', error);
     } finally {
       setSaving(false);
     }
@@ -148,13 +149,13 @@ export default function OnboardingScreen() {
         <SafeAreaView style={styles.safeArea} edges={['top', 'bottom']}>
           <View style={styles.welcomeContent}>
             <View style={styles.welcomeTextBlock}>
-              <ThemedText style={styles.appName} lightColor="#FFFFFF" darkColor="#FFFFFF" includeFontPadding={false}>
+              <ThemedText style={styles.appName} lightColor={TEXT_ON_DARK} darkColor={TEXT_ON_DARK} includeFontPadding={false}>
                 Bravery Bank
               </ThemedText>
-              <ThemedText style={styles.tagline} lightColor="#FFFFFF" darkColor="#FFFFFF">
+              <ThemedText style={styles.tagline} lightColor={TEXT_ON_DARK} darkColor={TEXT_ON_DARK}>
                 One tiny act of courage, every day
               </ThemedText>
-              <ThemedText style={styles.privacyOnWelcome} lightColor="rgba(255,255,255,0.6)" darkColor="rgba(255,255,255,0.6)">
+              <ThemedText style={styles.privacyOnWelcome} lightColor={TEXT_ON_DARK_SOFT} darkColor={TEXT_ON_DARK_SOFT}>
                 No email. No password. No cloud. Just you.
               </ThemedText>
             </View>
@@ -195,44 +196,31 @@ export default function OnboardingScreen() {
       <SafeAreaView style={styles.safeArea} edges={['top', 'bottom']}>
         <View style={styles.reminderContent}>
           <View style={styles.reminderTextBlock}>
-          <ThemedText style={styles.reminderTitle} lightColor="#FFFFFF" darkColor="#FFFFFF">
+          <ThemedText style={styles.reminderTitle} lightColor={TEXT_ON_DARK} darkColor={TEXT_ON_DARK}>
             Want a daily reminder?
             </ThemedText>
-            <ThemedText style={styles.reminderSubline} lightColor="rgba(255,255,255,0.9)" darkColor="rgba(255,255,255,0.9)">
+            <ThemedText style={styles.reminderSubline} lightColor={TEXT_ON_DARK_MUTED} darkColor={TEXT_ON_DARK_MUTED}>
                 One quiet nudge, once a day.
             </ThemedText>
           </View>
-          {Platform.OS === 'android' ? (
-            <>
-              <Pressable
-                style={styles.timeRow}
-                onPress={() => setShowTimePicker(true)}
-              >
-                <ThemedText style={styles.timeRowLabel} lightColor="#FFFFFF" darkColor="#FFFFFF">
-                  Remind me at
-                </ThemedText>
-                <ThemedText style={styles.timeRowValue}>
-                  {formatTimeForDisplay(reminderTime)}
-                </ThemedText>
-              </Pressable>
-              {showTimePicker && (
-                <DateTimePicker
-                  value={reminderTime}
-                  mode="time"
-                  display="default"
-                  onChange={handleTimeChange}
-                />
-              )}
-            </>
-          ) : (
-            <View style={styles.pickerWrap}>
-              <DateTimePicker
-                value={reminderTime}
-                mode="time"
-                display="spinner"
-                onChange={handleTimeChange}
-              />
-            </View>
+          <Pressable
+            style={styles.timeTextTouchable}
+            onPress={() => setShowTimePicker(true)}
+            hitSlop={{ top: 12, bottom: 12, left: 16, right: 16 }}
+            accessibilityRole="button"
+            accessibilityLabel={`Reminder time ${formatTimeForDisplay(reminderTime)}, tap to change`}
+          >
+            <ThemedText style={[styles.timeTextDisplay, { color: ACCENT_COLOR }]}>
+              {formatTimeForDisplay(reminderTime)}
+            </ThemedText>
+          </Pressable>
+          {Platform.OS === 'android' && showTimePicker && (
+            <DateTimePicker
+              value={reminderTime}
+              mode="time"
+              display="default"
+              onChange={handleTimeChange}
+            />
           )}
           <View style={styles.reminderMascotWrap}>
             <Image
@@ -249,8 +237,10 @@ export default function OnboardingScreen() {
             onPress={handleReminderYes}
             disabled={saving}
           >
-            <ThemedText style={styles.primaryButtonText}>
-              {saving ? '…' : 'Yes, remind me'}
+            <ThemedText style={styles.reminderPrimaryButtonText}>
+              {saving
+                ? '…'
+                : `Yes, remind me at ${formatTimeForDisplay(reminderTime)}`}
             </ThemedText>
           </Pressable>
           <Pressable
@@ -262,11 +252,49 @@ export default function OnboardingScreen() {
               Not now
             </ThemedText>
           </Pressable>
-          <ThemedText style={styles.hintOnDark} lightColor="rgba(255,255,255,0.5)" darkColor="rgba(255,255,255,0.5)">
+          <ThemedText style={styles.hintOnDark} lightColor={TEXT_ON_DARK_SOFT} darkColor={TEXT_ON_DARK_SOFT}>
             You can always change this in Settings or turn it off anytime.
           </ThemedText>
         </View>
       </SafeAreaView>
+      {Platform.OS === 'ios' && (
+        <Modal
+          visible={showTimePicker}
+          transparent
+          animationType="slide"
+          onRequestClose={() => setShowTimePicker(false)}
+        >
+          <View style={styles.timePickerModalRoot}>
+            <Pressable
+              style={styles.timePickerModalBackdrop}
+              onPress={() => setShowTimePicker(false)}
+              accessibilityLabel="Dismiss time picker"
+            />
+            <View style={styles.timePickerModalSheet}>
+              <DateTimePicker
+                value={reminderTime}
+                mode="time"
+                display="spinner"
+                onChange={handleTimeChange}
+                themeVariant="dark"
+                textColor="#FFFFFF"
+              />
+              <Pressable
+                style={styles.timePickerModalDone}
+                onPress={() => setShowTimePicker(false)}
+              >
+                <ThemedText
+                  style={styles.timePickerModalDoneText}
+                  lightColor={TEXT_ON_DARK}
+                  darkColor={TEXT_ON_DARK}
+                >
+                  Done
+                </ThemedText>
+              </Pressable>
+            </View>
+          </View>
+        </Modal>
+      )}
     </View>
   );
 }
@@ -331,10 +359,10 @@ const styles = StyleSheet.create({
     fontWeight: '500',
     textAlign: 'center',
     marginBottom: 16,
-    opacity: 0.95,
   },
   privacyOnWelcome: {
     fontSize: 14,
+    fontWeight: '400',
     textAlign: 'center',
   },
   privacy: {
@@ -361,7 +389,7 @@ const styles = StyleSheet.create({
     lineHeight: 34,
   },
   reminderSubline: {
-    fontSize: 17,
+    fontSize: 16,
     fontWeight: '400',
     textAlign: 'center',
     lineHeight: 24,
@@ -377,41 +405,43 @@ const styles = StyleSheet.create({
     width: 340,
     height: 340,
   },
-  timeRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
+  timeTextTouchable: {
     alignSelf: 'stretch',
-    gap: 8,
-    paddingVertical: 16,
-    paddingHorizontal: 20,
-    borderRadius: 12,
-    backgroundColor: 'rgba(42, 157, 143, 0.2)',
-    borderWidth: 1,
-    borderColor: 'rgba(42, 157, 143, 0.4)',
+    alignItems: 'center',
+    paddingVertical: 8,
+    marginBottom: 20,
   },
-  timeRowLabel: {
-    fontSize: 17,
-    fontWeight: '400',
-  },
-  timeRowValue: {
-    fontSize: 17,
+  timeTextDisplay: {
+    fontSize: 18,
     fontWeight: '600',
-    color: ACCENT_COLOR,
-  },
-  pickerWrap: {
-    marginBottom: 16,
-  },
-  hint: {
-    fontSize: 13,
-    opacity: 0.6,
     textAlign: 'center',
   },
-  hintAndroid: {
-    fontSize: 13,
-    opacity: 0.6,
-    textAlign: 'center',
-    marginTop: 16,
+  timePickerModalRoot: {
+    flex: 1,
+  },
+  timePickerModalBackdrop: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+  },
+  timePickerModalSheet: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    alignItems: 'center',
+    backgroundColor: WELCOME_BG,
+    paddingTop: 16,
+    paddingBottom: 34,
+    borderTopLeftRadius: 16,
+    borderTopRightRadius: 16,
+  },
+  timePickerModalDone: {
+    paddingVertical: 16,
+    paddingHorizontal: 24,
+  },
+  timePickerModalDoneText: {
+    fontSize: 18,
+    fontWeight: '600',
   },
   hintOnDark: {
     fontSize: 13,
@@ -420,10 +450,10 @@ const styles = StyleSheet.create({
     marginTop: 12,
   },
   secondaryButtonTextOnDark: {
-    fontSize: 17,
+    fontSize: 16,
     fontWeight: '500',
-    color: 'rgba(255,255,255,0.9)',
-    opacity: 1,
+    color: TEXT_ON_DARK,
+    opacity: 0.7,
   },
   footer: {
     paddingBottom: 48,
@@ -439,16 +469,21 @@ const styles = StyleSheet.create({
   },
   primaryButtonText: {
     color: '#FFFFFF',
-    fontSize: 17,
-    fontWeight: '600',
+    fontSize: 18,
+    fontWeight: '700',
+  },
+  reminderPrimaryButtonText: {
+    color: '#FFFFFF',
+    fontSize: 18,
+    fontWeight: '700',
+    textAlign: 'center',
   },
   secondaryButton: {
     alignItems: 'center',
     paddingVertical: 14,
   },
   secondaryButtonText: {
-    fontSize: 17,
+    fontSize: 16,
     fontWeight: '500',
-    opacity: 0.9,
   },
 });

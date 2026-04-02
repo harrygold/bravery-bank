@@ -19,6 +19,8 @@ const isExpoGo = Constants.appOwnership === 'expo';
 const ACCENT_COLOR = '#2A9D8F';
 const DANGER_COLOR = '#E07A5F';
 
+const borderSubtle = (dark: boolean) => (dark ? '#2A3A3A' : '#E8E8E8');
+
 // Format time string "HH:MM" to "H:MM AM/PM"
 const formatTime12Hour = (time24: string): string => {
   const [hourStr, minute] = time24.split(':');
@@ -55,7 +57,8 @@ export default function SettingsScreen() {
   const router = useRouter();
   const colorScheme = useColorScheme() ?? 'light';
   const colors = Colors[colorScheme];
-  
+  const dividerColor = borderSubtle(colorScheme === 'dark');
+
   const { resetAllData: resetBraveryBank } = useBraveryBank();
   const {
     isLoading,
@@ -172,10 +175,7 @@ export default function SettingsScreen() {
         {/* Settings Sections */}
         <View style={styles.content}>
           {/* Haptic Feedback */}
-          <View style={[
-            styles.settingRow,
-            { borderBottomColor: colorScheme === 'dark' ? '#2A3A3A' : '#E8E8E8' }
-          ]}>
+          <View style={[styles.settingRow, { borderBottomColor: dividerColor }]}>
             <View style={styles.settingInfo}>
               <ThemedText style={styles.settingLabel}>Haptic Feedback</ThemedText>
               <ThemedText style={styles.settingDescription}>
@@ -191,10 +191,7 @@ export default function SettingsScreen() {
           </View>
 
           {/* Theme */}
-          <View style={[
-            styles.settingRow,
-            { borderBottomColor: colorScheme === 'dark' ? '#2A3A3A' : '#E8E8E8' }
-          ]}>
+          <View style={[styles.settingRow, { borderBottomColor: dividerColor }]}>
             <View style={styles.settingInfo}>
               <ThemedText style={styles.settingLabel}>Theme</ThemedText>
               <ThemedText style={styles.settingDescription}>
@@ -207,10 +204,7 @@ export default function SettingsScreen() {
           </View>
 
           {/* Daily Reminder */}
-          <View style={[
-            styles.settingRow,
-            { borderBottomColor: colorScheme === 'dark' ? '#2A3A3A' : '#E8E8E8' }
-          ]}>
+          <View style={[styles.settingRow, { borderBottomColor: dividerColor }]}>
             <View style={styles.settingInfo}>
               <ThemedText style={styles.settingLabel}>Daily Reminder</ThemedText>
               <ThemedText style={styles.settingDescription}>
@@ -229,12 +223,12 @@ export default function SettingsScreen() {
 
           {notificationsEnabled && (
             <Pressable
-              style={[styles.timeRow, { borderBottomColor: colorScheme === 'dark' ? '#2A3A3A' : '#E8E8E8' }]}
+              style={[styles.timeRow, { borderBottomColor: dividerColor }]}
               onPress={openTimePicker}
             >
               <ThemedText style={styles.timeRowLabel}>Reminder time</ThemedText>
               <View style={styles.timeRowValue}>
-                <ThemedText style={[styles.timeRowTime, { color: ACCENT_COLOR }]}>
+                <ThemedText style={styles.timeRowTime}>
                   {formatTime12Hour(notificationTime)}
                 </ThemedText>
                 <IconSymbol name="chevron.right" size={18} color={colors.icon} />
@@ -307,7 +301,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 16,
+    paddingHorizontal: 24,
     paddingVertical: 12,
   },
   backButton: {
@@ -317,18 +311,19 @@ const styles = StyleSheet.create({
   },
   backText: {
     fontSize: 16,
+    fontWeight: '500',
     marginLeft: 4,
   },
   title: {
-    fontSize: 18,
-    fontWeight: '600',
+    fontSize: 28,
+    fontWeight: '700',
   },
   placeholder: {
     width: 70,
   },
   content: {
     flex: 1,
-    paddingHorizontal: 16,
+    paddingHorizontal: 24,
     paddingTop: 24,
   },
   settingRow: {
@@ -349,10 +344,12 @@ const styles = StyleSheet.create({
   },
   settingDescription: {
     fontSize: 13,
+    fontWeight: '400',
     opacity: 0.6,
   },
   settingValue: {
     fontSize: 16,
+    fontWeight: '400',
     opacity: 0.6,
   },
   timeRow: {
@@ -360,11 +357,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingVertical: 14,
-    paddingHorizontal: 4,
+    paddingHorizontal: 0,
     borderBottomWidth: 1,
   },
   timeRowLabel: {
-    fontSize: 15,
+    fontSize: 16,
     fontWeight: '500',
   },
   timeRowValue: {
@@ -375,6 +372,7 @@ const styles = StyleSheet.create({
   timeRowTime: {
     fontSize: 16,
     fontWeight: '600',
+    color: ACCENT_COLOR,
   },
   timePickerContainer: {
     paddingVertical: 16,
@@ -392,16 +390,16 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   testButton: {
+    alignSelf: 'stretch',
     borderWidth: 1,
     borderRadius: 12,
-    paddingVertical: 12,
-    paddingHorizontal: 16,
+    paddingVertical: 14,
     alignItems: 'center',
     marginTop: 8,
     marginBottom: 8,
   },
   testButtonText: {
-    fontSize: 15,
+    fontSize: 16,
     fontWeight: '600',
   },
   dangerSection: {
@@ -410,14 +408,16 @@ const styles = StyleSheet.create({
   dangerLabel: {
     fontSize: 12,
     fontWeight: '600',
+    textTransform: 'uppercase',
     letterSpacing: 1,
-    opacity: 0.5,
+    opacity: 0.6,
     marginBottom: 16,
   },
   dangerButton: {
+    alignSelf: 'stretch',
     borderWidth: 1,
     borderRadius: 12,
-    paddingVertical: 16,
+    paddingVertical: 14,
     alignItems: 'center',
     marginBottom: 12,
   },
@@ -427,6 +427,7 @@ const styles = StyleSheet.create({
   },
   dangerDescription: {
     fontSize: 13,
+    fontWeight: '400',
     opacity: 0.5,
     textAlign: 'center',
   },

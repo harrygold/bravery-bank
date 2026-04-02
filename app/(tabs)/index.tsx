@@ -177,7 +177,6 @@ export default function TodayScreen() {
     completeToday,
     restToday,
     returnToChallenge,
-    skipToNextChallenge,
   } = useBraveryBank();
 
   const shouldConsiderCelebration = todayStatus === 'completed' && braveDays >= 50;
@@ -364,18 +363,20 @@ export default function TodayScreen() {
                 >
                   50 moments of courage.
                 </ThemedText>
-                <ThemedText
-                  style={[styles.celebrationSubtitle, { color: colors.text }]}
-                  includeFontPadding={false}
-                >
-                  You did something most people never do.
-                </ThemedText>
-                <ThemedText
-                  style={[styles.celebrationBody, { color: colors.text }]}
-                  includeFontPadding={false}
-                >
-                  From a deep breath to telling someone your story — you showed up, again and again.
-                </ThemedText>
+                <View style={styles.celebrationTextBlock}>
+                  <ThemedText
+                    style={[styles.celebrationSubtitle, { color: colors.text }]}
+                    includeFontPadding={false}
+                  >
+                    You did what most people won&apos;t.
+                  </ThemedText>
+                  <ThemedText
+                    style={[styles.celebrationBody, { color: colors.text }]}
+                    includeFontPadding={false}
+                  >
+                    From a deep breath to telling someone your story — you showed up, again and again.
+                  </ThemedText>
+                </View>
                 {showContinueButton && (
                   <Animated.View
                     entering={FadeIn.duration(500)}
@@ -444,16 +445,6 @@ export default function TodayScreen() {
           </Pressable>
         </Animated.View>
       )}
-
-        {/* DEV: Skip to next challenge (temporary, remove before release) */}
-        <Pressable
-          style={styles.devSkipButton}
-          onPress={skipToNextChallenge}
-        >
-          <ThemedText style={styles.devSkipText}>
-            DEV: Skip to Next Challenge →
-          </ThemedText>
-        </Pressable>
       </SafeAreaView>
     </ThemedView>
   );
@@ -581,6 +572,11 @@ const styles = StyleSheet.create({
     alignSelf: 'stretch',
     width: '100%',
   },
+  celebrationTextBlock: {
+    alignSelf: 'center',
+    width: '100%',
+    maxWidth: '85%',
+  },
   celebrationImage: {
     width: 180,
     height: 180,
@@ -596,14 +592,14 @@ const styles = StyleSheet.create({
   celebrationSubtitle: {
     fontSize: 18,
     fontWeight: '500',
-    textAlign: 'center',
+    textAlign: 'left',
     opacity: 0.7,
     marginTop: 4,
   },
   celebrationBody: {
     fontSize: 16,
     fontWeight: '400',
-    textAlign: 'center',
+    textAlign: 'left',
     opacity: 0.6,
     lineHeight: 24,
     marginTop: 4,
@@ -664,16 +660,6 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '500',
     opacity: 0.7,
-  },
-  devSkipButton: {
-    alignSelf: 'center',
-    paddingVertical: 12,
-    marginTop: 'auto',
-    marginBottom: 8,
-  },
-  devSkipText: {
-    fontSize: 12,
-    opacity: 0.5,
   },
   confettiOverlay: {
     position: 'absolute',
