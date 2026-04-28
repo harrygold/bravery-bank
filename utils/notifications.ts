@@ -122,7 +122,6 @@ export async function scheduleDailyReminder(timeStr: string): Promise<boolean> {
     content: {
       title: 'Bravery Bank',
       body: getDailyMessageBody(),
-      channelId: DAILY_REMINDER_CHANNEL_ID,
       ...(Platform.OS === 'android' && { color: '#2A9D8F' }),
     },
     trigger: {
@@ -156,7 +155,6 @@ export async function sendTestNotification(): Promise<boolean> {
     content: {
       title: 'Bravery Bank',
       body: "This is a test. Your daily reminder is set.",
-      channelId: DAILY_REMINDER_CHANNEL_ID,
       ...(Platform.OS === 'android' && { color: '#2A9D8F' }),
     },
     trigger: null, // show immediately

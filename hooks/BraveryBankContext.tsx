@@ -8,8 +8,11 @@ import {
   saveData,
   type CompletedDateEntry,
 } from '@/utils/storage';
+import Constants from 'expo-constants';
 import * as Haptics from 'expo-haptics';
 import React, { useCallback, useEffect, useState } from 'react';
+
+const isExpoGo = Constants.appOwnership === 'expo';
 
 export interface BraveryBankValue {
   isLoading: boolean;
@@ -77,6 +80,8 @@ export function BraveryBankProvider({ children }: { children: React.ReactNode })
 
     const today = getTodayString();
     const freshData = await loadData();
+    if (freshData.todayStatus === 'completed') return;
+
     const updatedData: BraveryBankData = {
       ...freshData,
       totalBraveDays: freshData.totalBraveDays + 1,
@@ -132,6 +137,15 @@ export function BraveryBankProvider({ children }: { children: React.ReactNode })
   }, [data]);
 
   const resetAllData = useCallback(async () => {
+    if (!isExpoGo) {
+      try {
+        const { cancelDailyReminder } = await import('@/utils/notifications');
+        await cancelDailyReminder();
+      } catch {
+        // Reset should still succeed even if notification cleanup fails.
+      }
+    }
+
     const cleared = await clearData();
     if (cleared) {
       const freshData = getDefaultData();
