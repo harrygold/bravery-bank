@@ -4,7 +4,7 @@ import * as Notifications from 'expo-notifications';
 import { Stack, useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect, useState } from 'react';
-import { ActivityIndicator, StyleSheet, View } from 'react-native';
+import { ActivityIndicator, Platform, StyleSheet, View } from 'react-native';
 import 'react-native-reanimated';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
@@ -55,6 +55,21 @@ export default function RootLayout() {
       }
     }
     rescheduleIfEnabled();
+  }, []);
+
+  // Expo's Android dev wrapper (withDevTools) activates keep-awake by default; release builds do not.
+  // Turn it off so the device honors the normal display sleep timeout.
+  useEffect(() => {
+    if (!__DEV__ || Platform.OS !== 'android') return;
+    const t = setTimeout(() => {
+      try {
+        const { deactivateKeepAwake, ExpoKeepAwakeTag } = require('expo-keep-awake');
+        void deactivateKeepAwake(ExpoKeepAwakeTag);
+      } catch {
+        // keep-awake not available
+      }
+    }, 0);
+    return () => clearTimeout(t);
   }, []);
 
   return (

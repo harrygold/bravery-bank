@@ -316,7 +316,6 @@ const styles = StyleSheet.create({
   },
   safeArea: {
     flex: 1,
-    justifyContent: 'space-between',
     paddingHorizontal: 24,
   },
   content: {
@@ -456,7 +455,8 @@ const styles = StyleSheet.create({
     opacity: 0.7,
   },
   footer: {
-    paddingBottom: 48,
+    marginTop: 'auto',
+    marginBottom: 48,
     alignSelf: 'stretch',
     alignItems: 'center',
   },
@@ -466,6 +466,10 @@ const styles = StyleSheet.create({
     paddingVertical: 18,
     alignItems: 'center',
     marginBottom: 12,
+  },
+  secondaryButton: {
+    alignItems: 'center',
+    paddingVertical: 14,
   },
   primaryButtonText: {
     color: '#FFFFFF',
@@ -477,10 +481,6 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: '700',
     textAlign: 'center',
-  },
-  secondaryButton: {
-    alignItems: 'center',
-    paddingVertical: 14,
   },
   secondaryButtonText: {
     fontSize: 16,

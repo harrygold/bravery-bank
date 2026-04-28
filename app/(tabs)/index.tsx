@@ -390,7 +390,10 @@ export default function TodayScreen() {
                       ]}
                       onPress={handleContinueCelebration}
                     >
-                      <ThemedText style={styles.primaryButtonText}>
+                      <ThemedText
+                        style={styles.primaryButtonText}
+                        includeFontPadding={false}
+                      >
                         Continue
                       </ThemedText>
                     </Pressable>
@@ -571,6 +574,7 @@ const styles = StyleSheet.create({
   celebrationContinueWrap: {
     alignSelf: 'stretch',
     width: '100%',
+    maxWidth: '100%',
   },
   celebrationTextBlock: {
     alignSelf: 'center',
@@ -584,7 +588,7 @@ const styles = StyleSheet.create({
   celebrationTitle: {
     fontSize: 24,
     fontWeight: '700',
-    lineHeight: 32,
+    lineHeight: 34,
     color: ACCENT_COLOR,
     textAlign: 'center',
     marginTop: 8,
@@ -594,6 +598,7 @@ const styles = StyleSheet.create({
     fontWeight: '500',
     textAlign: 'left',
     opacity: 0.7,
+    lineHeight: 28,
     marginTop: 4,
   },
   celebrationBody: {
@@ -601,7 +606,7 @@ const styles = StyleSheet.create({
     fontWeight: '400',
     textAlign: 'left',
     opacity: 0.6,
-    lineHeight: 24,
+    lineHeight: 28,
     marginTop: 4,
   },
   completedIcon: {
@@ -644,8 +649,12 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   celebrationContinueButton: {
+    alignSelf: 'stretch',
+    width: '100%',
     marginBottom: 0,
-    marginTop: 16,
+    marginTop: 24,
+    paddingVertical: 18,
+    borderRadius: 12,
   },
   primaryButtonText: {
     color: '#FFFFFF',

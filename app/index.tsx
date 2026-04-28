@@ -109,7 +109,6 @@ const styles = StyleSheet.create({
   },
   safeArea: {
     flex: 1,
-    justifyContent: 'space-between',
     paddingHorizontal: 24,
   },
   content: {
@@ -146,7 +145,8 @@ const styles = StyleSheet.create({
     marginTop: 8,
   },
   footer: {
-    paddingBottom: 48,
+    marginTop: 'auto',
+    marginBottom: 48,
     alignSelf: 'stretch',
     alignItems: 'center',
   },

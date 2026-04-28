@@ -1,7 +1,7 @@
 # Bravery Bank — Project Brain
 
 **Canonical source of truth for architecture, features, and decisions.**  
-Last updated: 2026-03-23.
+Last updated: 2026-04-06.
 
 ---
 
@@ -77,7 +77,9 @@ bravery-bank/
 │   │   └── blur-sad-walk.png
 ├── docs/
 │   ├── project_brain.md     # This file
-│   └── design_spec.md    # Visual system reference (colors, type, spacing, components)
+│   ├── design_spec.md    # Visual system reference (colors, type, spacing, components)
+│   └── privacy/
+│       └── index.html    # Privacy policy (GitHub Pages)
 ├── app.json
 ├── package.json
 └── tsconfig.json
@@ -112,7 +114,7 @@ bravery-bank/
 
 **Backfill:** `loadData()` converts legacy `completedDates` stored as plain string arrays into `{ date, challengeIndex: -1 }` objects.
 
-**New-day behavior:** On load, if `lastActivityDate !== today`, we advance `lastChallengeIndex` by 1 (regardless of how many days were missed — user always picks up the next challenge in sequence), set `todayStatus: 'none'`, and persist.
+**New-day behavior:** On load, if `lastActivityDate !== today`, we advance `lastChallengeIndex` by 1 (regardless of how many days were missed — user always picks up the next challenge in sequence), set `todayStatus: 'none'`, and persist. **Timezone:** `today` comes from `getTodayString()`, which formats the device’s local calendar date using `getFullYear()`, `getMonth()`, and `getDate()` (not `toISOString()`, which returns UTC and could shift “today” forward for users behind UTC).
 
 ---
 
@@ -165,12 +167,6 @@ bravery-bank/
   - Challenges progress from gentle grounding to genuine social stretches.  
   - Four challenges updated March 14: #23 (overthinking→decision), #24 (eye contact→walk into room), #26 (no headphones→no phone), #34 (imperfect task→2-minute timer cleanup).  
   - Two challenge content replacements March 18: #6 ("Stretch your hands wide, spread your fingers, and hold for 5 seconds. Take up space.") and #7 ("Walk to the other side of the room slower than feels normal. Pay attention to each step.").
-
-- **DEV: Skip to Next Challenge (temporary)**  
-  - Developer-only skip button on Today screen for testing challenge copy.  
-  - Advances lastChallengeIndex by 1, resets todayStatus to 'none', does not increment totalBraveDays.  
-  - skipToNextChallenge() function added to BraveryBankContext.  
-  - **TO BE REMOVED before release.**
 
 - **Settings (modal)**  
   - Haptic Feedback toggle.  
@@ -277,6 +273,34 @@ bravery-bank/
   - Celebration card subtitle changed to “You did what most people won’t.”  
   - Celebration card body text left-aligned within centered container.
 
+- **Privacy policy**  
+  - Hosted on GitHub Pages at https://harrygold.github.io/bravery-bank/docs/privacy/  
+  - Platform-neutral (covers Android and future iOS)  
+  - Contact email: harrygoldapps@gmail.com  
+  - Publisher name: Harry Gold Consulting
+
+- **Pre-launch cleanup completed**  
+  - DEV skip button removed from Today screen. `skipToNextChallenge` function retained in BraveryBankContext (used by celebration flow’s `handleContinueCelebration`).  
+  - All `console.error` and `console.log` statements wrapped in `__DEV__` checks so they only run in development mode.  
+  - Unused `ACCENT_COLOR_LIGHT` constant removed from Today screen.
+
+- **Timezone bug fixed**  
+  - `getTodayString()` and `getCurrentWeekDays()` in `utils/storage.ts` were using `toISOString()`, which returns UTC. This caused dates to be one day ahead for users in western timezones (e.g. 7:48 PM Pacific on April 1 returned `"2026-04-02"`). Fixed by using local date components.
+
+- **Screen sleep behavior fixed**  
+  - App was keeping the Android screen awake indefinitely. Removed keep-awake behavior so the screen follows normal Android system sleep timeout.
+
+- **Adaptive icon**  
+  - Custom app icon using blur-curious pose on teal (#2A9D8F) background. Configured in `app.json` as `expo.icon` and `expo.android.adaptiveIcon.foregroundImage` with `backgroundColor: "#2A9D8F"`. Icon file at `assets/images/icon.png` (1024×1024).
+
+- **Google Play store listing prepared**  
+  - App name: "Bravery Bank"  
+  - Short description: "A daily courage app for shy people. 50 small challenges, one day at a time."  
+  - Full description written and ready for submission.  
+  - Medical disclaimer written for content rating section.  
+  - Contact email: harrygoldapps@gmail.com  
+  - Publisher: Harry Gold Consulting
+
 ---
 
 ## 7. Unfinished / partial
@@ -287,10 +311,11 @@ bravery-bank/
 - **Stale `app/modal.tsx`:** Default placeholder; not part of current flows.
 - **Blur mascot integration for Today screen states (curious for challenge, excited for completion) and onboarding (hello/excited for welcome) — not yet started.**
 - **UI visual refresh:** Gradient backgrounds, updated card styling not yet started.
-- **DEV skip button needs to be removed before Google Play release.**
+- **Codebase pushed to GitHub** at github.com/harrygold/bravery-bank. Future commits should be made regularly.
+- **Multi-day QA testing ongoing** — 5 clean days as of April 6. Challenge advancement, weekly dots, and rest days all working correctly.
+- **Google Play submission pending** — screenshots needed, then production EAS build, upload, and 12-tester recruitment.
 - **Progress screen "50-Day Journey Complete" badge:** Implemented — shows when `braveDays >= 50` and remains visible for all higher counts.
 - **Continue button styling:** The Continue button on the celebration card has a compressed pill appearance that needs fixing in the visual polish pass.
-- **Typography issues on celebration screens:** The "g" descender is clipped on "courage" and "challenges" text. Celebration card text has orphaned words ("try" on its own line). To be fixed in the visual polish pass.
 - **Milestone celebrations at 100, 150, 200:** Parked for V2. App functions correctly past 50 (counter keeps climbing, challenges cycle, encouragement text shows "Keep going") but has no special celebration moments beyond 50.
 
 ---
@@ -344,6 +369,12 @@ bravery-bank/
 
 16. **Celebration state is flag-controlled**  
     `hasSeenCelebration` ensures the 50-day celebration card shows exactly once. `hasCompletedFirstCycle` ensures the post-completion welcome screen ("You completed all 50 challenges") shows exactly once. Both flags persist in AsyncStorage and follow the load-fresh-before-saving pattern to avoid stale data overwrites.
+
+17. **Local timezone for all date operations**  
+    `getTodayString()` and `getCurrentWeekDays()` use `getFullYear()`, `getMonth()`, and `getDate()` instead of `toISOString().split('T')[0]`. The ISO method returns UTC, which shifts dates forward for western hemisphere users. All date strings in storage are local calendar dates.
+
+18. **App icon uses blur-curious pose**  
+    Chose the curious/thinking Blur pose for the adaptive icon — distinctive at small sizes, captures the app's personality (shy but curious). Teal background (#2A9D8F) chosen over navy for better contrast with Blur's blue fur.
 
 ---
 
