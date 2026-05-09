@@ -12,6 +12,7 @@
       "supportsTablet": true
     },
     "android": {
+      "versionCode": 1,
       "keepAwake": false,
       "adaptiveIcon": {
         "backgroundColor": "#2A9D8F",
@@ -51,7 +52,8 @@
             "backgroundColor": "#000000"
           }
         }
-      ]
+      ],
+      "./plugins/with-adi-registration"
     ],
     "experiments": {
       "typedRoutes": true,
