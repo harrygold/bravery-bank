@@ -1,7 +1,7 @@
 # Bravery Bank — Project Brain
 
 **Canonical source of truth for architecture, features, and decisions.**  
-Last updated: 2026-04-06.
+Last updated: 2026-05-09.
 
 ---
 
@@ -395,6 +395,75 @@ Use the QR code for Expo Go, or a dev/build target for notifications. Reset All 
 - **Branching:** Use feature branches; merge to main after review.  
 - **Commits:** Prefer clear, scoped messages (e.g. “fix: Brave Days not updating until reload”, “content: onboarding privacy and CTA copy”).  
 - **.gitignore:** Standard Expo/Node (e.g. node_modules, .expo, env files); do not commit secrets.
+
+---
+
+## 11. Launch status update (May 9, 2026)
+
+### 11.1 Current status
+
+Bravery Bank v1 is in Google Play Console **"In review"** state for **Android Developer Verification**. We are waiting on Google's package name registration approval email to `harrygoldapps@gmail.com`.
+
+Once verification is approved, the path to production is:
+
+1. Create the app entry in Play Console.
+2. Complete the Play Console checklist: store listing, content rating, target audience, data safety.
+3. Set up the closed testing track and upload the AAB.
+4. Order the Testers Community 25-tester plan (~$15).
+5. Run the 14-day testing clock.
+6. Apply for production access.
+7. Wait 3–7 days for Google review.
+8. Launch.
+
+### 11.2 Code work completed (April 27, 2026 — Codex audit)
+
+A Codex audit identified 3 bugs. All fixed and committed:
+
+- **TypeScript error in `utils/notifications.ts`** — `channelId` was in the wrong place per Expo SDK 54's notification API. Moved to the correct location.
+- **Double-tap race condition on `completeToday` in `BraveryBankContext.tsx`** — Rapid taps could double-increment `totalBraveDays`. Fixed using the same March 14 pattern: load fresh data, re-check `todayStatus` before incrementing.
+- **Reset didn't cancel scheduled notifications** — Reset cleared storage but left the OS-level scheduled reminder in place. Fixed with a `try/catch`'d dynamic `import('@/utils/notifications')` wrapped in a `!isExpoGo` check, so cancellation runs in dev/production builds and silently no-ops in Expo Go.
+
+### 11.3 Android Developer Verification work (May 8, 2026)
+
+Google rolled out a new **Android Developer Verification** policy in March 2026. Required uploading a verification APK that includes a snippet at `android/app/src/main/assets/adi-registration.properties`, signed with the release keystore.
+
+- Built a custom local Expo config plugin at `plugins/with-adi-registration.js` using `withDangerousMod` to copy the file from `assets/adi-registration.properties` into the native `android/app/src/main/assets/` folder during prebuild.
+- Took **4 EAS builds** to land (path resolution + plugin shape iterations).
+- Verification passed on the device side and was submitted to Google for review.
+
+### 11.4 Key identifiers
+
+| Field | Value |
+|-------|-------|
+| Package name | `com.harrygold.braverybank` |
+| Play Console developer | Harry Gold Consulting |
+| Play Console account ID | `7374604285609681461` |
+| Publishing email | `harrygoldapps@gmail.com` |
+| EAS project ID | `295104c0-8e03-4ae3-862c-13e79fcacc8f` |
+| EAS keystore (Build Credentials) | `vC9fXDdxt6` |
+| Release keystore SHA-256 fingerprint | `1B:5A:4D:24:F0:10:ED:AA:93:6B:7F:6C:97:38:B4:99:4E:B6:0D:27:CD:0B:53:47:21:BC:A2:31:CB:51:14:50` |
+| Verification snippet (final, 26 chars) | `C2JE6YJHJNDBGAAAAAAAAAAAAA` |
+| GitHub repo | `github.com/harrygold/bravery-bank` (latest commit `7fd8209`) |
+
+### 11.5 Post-launch cleanup list
+
+To run *after* package registration approves and the app is live:
+
+- Remove `versionCode: 1` from `app.json` (EAS warning, currently ignored).
+- Fix git config to use real email.
+- Address 6 lint warnings in `app/_layout.tsx` and `app/index.tsx`.
+- Resolve `design_spec.md` "Known inconsistencies (V2)" items.
+- Remove the `verification-apk` profile from `eas.json`.
+- Remove `./plugins/with-adi-registration` from the `plugins` array in `app.json`.
+- Delete `plugins/with-adi-registration.js` and the `plugins/` folder.
+- Delete `assets/adi-registration.properties`.
+- Delete the two failed verification APK files from `~/Documents/bravery-bank-launch/builds/`.
+
+### 11.6 Strategic thread (open, separate)
+
+Ideabrowser generated a strategic analysis of **"Bravery Bank Courage Coach"** suggesting a $9.99/month subscription productization path with $5M+ ARR potential. Saved as `bravery-bank-courage-coach-complete-data.json`.
+
+Slated for a **separate strategic conversation** — intentionally not mixed with launch execution.
 
 ---
 
